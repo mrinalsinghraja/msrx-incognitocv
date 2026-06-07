@@ -34,6 +34,18 @@ const AppCore = {
     return fullText.trim();
   },
 
+  async extractTextFromDocx(arrayBuffer) {
+    const { value } = await mammoth.extractRawText({ arrayBuffer });
+    return value.trim();
+  },
+
+  async extractTextFromFile(file) {
+    const buffer = await file.arrayBuffer();
+    if (file.type === 'application/pdf') return this.extractTextFromPDF(buffer);
+    if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return this.extractTextFromDocx(buffer);
+    throw new Error('unsupported-file-type');
+  },
+
   async runInference(model, resume, job) {
     const response = await fetch('/api/optimize', {
       method: 'POST',
@@ -59,9 +71,12 @@ const UI = {
       resume: document.getElementById('resumeInput'),
       job: document.getElementById('jobInput'),
       model: document.getElementById('modelSelect'),
-      uploader: document.getElementById('pdfUploader'),
-      dropzone: document.getElementById('dropzone'),
-      dropHint: document.getElementById('dropHint'),
+      resumeUploader: document.getElementById('resumeUploader'),
+      resumeDropzone: document.getElementById('resumeDropzone'),
+      resumeDropHint: document.getElementById('resumeDropHint'),
+      jobUploader: document.getElementById('jobUploader'),
+      jobDropzone: document.getElementById('jobDropzone'),
+      jobDropHint: document.getElementById('jobDropHint'),
       overlay: document.getElementById('loadingOverlay'),
       output: document.getElementById('outputArea'),
     };
@@ -76,15 +91,16 @@ const UI = {
     this.els.resume.addEventListener('input', (e) => AppCore.persistData('resume_cache', e.target.value));
     this.els.job.addEventListener('input', (e) => AppCore.persistData('job_cache', e.target.value));
     this.els.model.addEventListener('change', (e) => AppCore.persistData('model_pref', e.target.value));
-    this.els.uploader.addEventListener('change', (e) => this.handlePDFImport(e));
-    this.bindDropzone();
+    this.els.resumeUploader.addEventListener('change', (e) => this.handleFileImport(e, this.els.resume, 'resume_cache'));
+    this.els.jobUploader.addEventListener('change', (e) => this.handleFileImport(e, this.els.job, 'job_cache'));
+    this.bindDropzone(this.els.resumeDropzone, this.els.resumeDropHint, this.els.resume, 'resume_cache');
+    this.bindDropzone(this.els.jobDropzone, this.els.jobDropHint, this.els.job, 'job_cache');
   },
 
-  bindDropzone() {
-    const zone = this.els.dropzone;
+  bindDropzone(zone, hint, targetField, cacheKey) {
     let depth = 0;
-    const show = () => this.els.dropHint.classList.remove('hidden');
-    const hide = () => { depth = 0; this.els.dropHint.classList.add('hidden'); };
+    const show = () => hint.classList.remove('hidden');
+    const hide = () => { depth = 0; hint.classList.add('hidden'); };
 
     zone.addEventListener('dragenter', (e) => { e.preventDefault(); depth++; show(); });
     zone.addEventListener('dragover', (e) => e.preventDefault());
@@ -92,7 +108,7 @@ const UI = {
     zone.addEventListener('drop', (e) => {
       e.preventDefault();
       hide();
-      this.importPDFFile(e.dataTransfer.files?.[0]);
+      this.importDocumentFile(e.dataTransfer.files?.[0], targetField, cacheKey);
     });
   },
 
@@ -105,29 +121,30 @@ const UI = {
     alert('Everything cleared — nothing left in this browser.');
   },
 
-  handlePDFImport(event) {
-    this.importPDFFile(event.target.files?.[0]);
+  handleFileImport(event, targetField, cacheKey) {
+    this.importDocumentFile(event.target.files?.[0], targetField, cacheKey);
     event.target.value = '';
   },
 
-  importPDFFile(file) {
+  async importDocumentFile(file, targetField, cacheKey) {
     if (!file) return;
-    if (file.type !== 'application/pdf') {
-      alert("That isn't a PDF — drop a .pdf file or paste your resume text directly.");
+
+    const supportedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!supportedTypes.includes(file.type)) {
+      alert("That file type isn't supported — upload a PDF or Word (.docx) file, or paste the text directly.");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const text = await AppCore.extractTextFromPDF(reader.result);
-        this.els.resume.value = text;
-        AppCore.persistData('resume_cache', text);
-      } catch (err) {
-        alert('Could not parse that PDF locally — try pasting the resume text directly instead.');
-      }
-    };
-    reader.readAsArrayBuffer(file);
+    try {
+      const text = await AppCore.extractTextFromFile(file);
+      targetField.value = text;
+      AppCore.persistData(cacheKey, text);
+    } catch (err) {
+      alert('Could not read that file locally — try pasting the text directly instead.');
+    }
   },
 
   async triggerExecutionPipeline() {
