@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MSRX IncognitoCV — Free, Anonymous Resume Optimizer</title>
+  <meta name="description" content="Paste your resume and a job description, get an ATS-ready rewrite in seconds. No account, no data collection, completely free — bring your own Groq key and everything runs in your browser.">
+  <link rel="canonical" href="https://cv.msrx.co.in/">
+  <meta property="og:title" content="MSRX IncognitoCV — Free, Anonymous Resume Optimizer">
+  <meta property="og:description" content="100% incognito resume optimization. No login, no tracking, nothing stored.">
+  <meta property="og:url" content="https://cv.msrx.co.in/">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <style>
+    :root { --msrx-gradient: linear-gradient(135deg, #00c4df 0%, #8b5cf6 100%); }
+    body { background-color: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .card { background: #ffffff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 20px rgba(0,0,0,0.05); }
+    .msrx-mark { background: var(--msrx-gradient); }
+    .msrx-wordmark { background: var(--msrx-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .msrx-cta { background: var(--msrx-gradient); }
+    textarea::-webkit-scrollbar { width: 6px; }
+    textarea::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-[#8b5cf6]/15">
+
+  <header class="bg-white/80 backdrop-blur-xl sticky top-0 z-50 border-b border-black/5 px-4 md:px-8 py-4 flex justify-between items-center">
+    <div class="flex items-center space-x-3">
+      <div class="msrx-mark h-9 w-9 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm">M</div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="text-base font-bold tracking-wide msrx-wordmark">MSRX</span>
+          <span class="bg-gray-100 text-[#6e6e73] text-[10px] px-2 py-0.5 rounded font-medium border border-gray-200 uppercase tracking-widest">IncognitoCV</span>
+        </div>
+        <p class="text-[11px] text-[#a1a1a6] mt-0.5">Free · Private · No login, ever</p>
+      </div>
+    </div>
+    <div class="hidden sm:flex items-center space-x-2 text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1.5 rounded-full font-medium">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span>Nothing stored, ever</span>
+    </div>
+  </header>
+
+  <div class="border-b border-black/5 bg-white/50">
+    <div class="max-w-7xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] text-[#6e6e73] font-medium">
+      <span class="flex items-center gap-1.5"><i data-lucide="eye-off" class="w-3.5 h-3.5 text-[#00c4df]"></i> No data collection</span>
+      <span class="flex items-center gap-1.5"><i data-lucide="user-x" class="w-3.5 h-3.5 text-[#00c4df]"></i> No login or identity needed</span>
+      <span class="flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-[#8b5cf6]"></i> 100% incognito</span>
+      <span class="flex items-center gap-1.5"><i data-lucide="gift" class="w-3.5 h-3.5 text-[#8b5cf6]"></i> Completely free — every feature unlocked</span>
+    </div>
+  </div>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <section class="lg:col-span-5 flex flex-col space-y-5">
+
+      <div class="card rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="flex items-start gap-2.5">
+          <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">1</span>
+          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Paste your <span class="text-[#1d1d1f] font-semibold">free Groq key</span> — stays on this device</p>
+        </div>
+        <div class="flex items-start gap-2.5">
+          <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">2</span>
+          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Drop in your <span class="text-[#1d1d1f] font-semibold">resume</span> — PDF or text</p>
+        </div>
+        <div class="flex items-start gap-2.5">
+          <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">3</span>
+          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Paste the <span class="text-[#1d1d1f] font-semibold">job post</span> and run</p>
+        </div>
+      </div>
+
+      <div class="card rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <i data-lucide="key" class="text-[#8b5cf6] w-4 h-4"></i>
+            <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Your Groq API Key</h2>
+          </div>
+          <a href="https://console.groq.com/keys" target="_blank" rel="noopener" class="text-[11px] text-[#00c4df] hover:underline flex items-center gap-1 font-medium">
+            <span>Get a free key</span>
+            <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
+          </a>
+        </div>
+        <p class="text-[11px] text-[#6e6e73] leading-relaxed">
+          Groq's free tier is plenty for this. Your key lives only in this browser and talks to Groq directly — MSRX never sees it.
+        </p>
+        <input type="password" id="apiKeyInput" placeholder="Paste gsk_..." autocomplete="off" class="w-full bg-[#f5f5f7] border border-gray-200 rounded-xl px-4 py-3 text-xs font-mono text-[#1d1d1f] focus:outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/15 transition-all">
+        <div class="grid grid-cols-2 gap-3 items-end">
+          <div>
+            <label class="block text-[10px] uppercase tracking-widest text-[#a1a1a6] font-semibold mb-1.5">Model</label>
+            <select id="modelSelect" class="w-full bg-[#f5f5f7] border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-[#1d1d1f] focus:outline-none focus:border-[#8b5cf6] transition-all">
+              <option value="llama-3.3-70b-versatile">Llama 3.3 70B — best quality</option>
+              <option value="llama-3.1-8b-instant">Llama 3.1 8B — fastest</option>
+            </select>
+          </div>
+          <button onclick="UI.wipeAllData()" class="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 rounded-xl px-3 py-2.5 text-[11px] font-medium transition-all">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Clear everything</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="resumeCard" class="card rounded-2xl p-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <i data-lucide="file-text" class="text-[#8b5cf6] w-4 h-4"></i>
+            <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Your Resume</h2>
+          </div>
+          <label class="flex items-center gap-1.5 text-[11px] text-[#00c4df] hover:underline cursor-pointer font-medium">
+            <i data-lucide="upload" class="w-3 h-3"></i>
+            <span>Browse PDF</span>
+            <input type="file" id="pdfUploader" accept="application/pdf" class="hidden">
+          </label>
+        </div>
+        <div id="dropzone" class="relative rounded-xl border-2 border-dashed border-gray-200 transition-colors">
+          <textarea id="resumeInput" rows="7" placeholder="Paste your resume text — or drag a PDF in here" class="relative z-10 w-full bg-[#f5f5f7] border-0 rounded-[10px] px-4 py-3 text-xs font-mono text-[#1d1d1f] leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/15 transition-all resize-none"></textarea>
+          <div id="dropHint" class="hidden absolute inset-0 z-20 rounded-xl bg-[#00c4df]/5 border-2 border-[#00c4df] flex items-center justify-center pointer-events-none">
+            <span class="flex items-center gap-2 text-xs font-medium text-[#00c4df]">
+              <i data-lucide="upload-cloud" class="w-4 h-4"></i> Drop your PDF here
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card rounded-2xl p-5 space-y-3">
+        <div class="flex items-center space-x-2.5">
+          <i data-lucide="target" class="text-[#8b5cf6] w-4 h-4"></i>
+          <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Target Job Description</h2>
+        </div>
+        <textarea id="jobInput" rows="5" placeholder="Paste the job posting you're applying to" class="w-full bg-[#f5f5f7] border border-gray-200 rounded-xl px-4 py-3 text-xs font-mono text-[#1d1d1f] leading-relaxed focus:outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/15 transition-all resize-none"></textarea>
+      </div>
+
+      <button onclick="UI.triggerExecutionPipeline()" class="msrx-cta flex items-center justify-center gap-2.5 text-white font-semibold text-sm rounded-2xl px-6 py-4 shadow-lg shadow-[#8b5cf6]/20 hover:shadow-xl hover:shadow-[#8b5cf6]/25 transition-all">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <span>Optimize My Resume</span>
+      </button>
+    </section>
+
+    <section class="lg:col-span-7 flex flex-col">
+      <div class="card rounded-2xl flex-1 flex flex-col overflow-hidden relative min-h-[480px]">
+        <div class="flex items-center justify-between px-5 py-3.5 border-b border-black/5">
+          <div class="flex items-center space-x-2.5">
+            <i data-lucide="sparkles" class="text-[#8b5cf6] w-4 h-4"></i>
+            <span class="text-xs font-semibold text-[#1d1d1f]">Your Optimized Resume</span>
+          </div>
+          <button onclick="UI.copyOutput()" class="flex items-center gap-1.5 text-[11px] text-[#00c4df] hover:underline font-medium">
+            <i data-lucide="copy" class="w-3 h-3"></i>
+            <span>Copy</span>
+          </button>
+        </div>
+        <textarea id="outputArea" readonly placeholder="Your rewritten, ATS-ready resume will appear here — clean Markdown, ready to paste anywhere." class="flex-1 w-full bg-transparent px-5 py-4 text-xs font-mono text-[#1d1d1f] leading-relaxed focus:outline-none resize-none placeholder:text-[#a1a1a6]"></textarea>
+
+        <div id="loadingOverlay" class="hidden absolute inset-0 bg-white/85 backdrop-blur-sm flex flex-col items-center justify-center space-y-4">
+          <div class="w-9 h-9 border-2 border-[#8b5cf6]/15 border-t-[#8b5cf6] rounded-full animate-spin"></div>
+          <p class="text-xs font-medium text-[#6e6e73]">Optimizing your resume...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-black/5 px-4 md:px-8 py-5 flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#a1a1a6] gap-2">
+    <span>Runs entirely in your browser. No servers, no accounts, no tracking.</span>
+    <span>Built by <span class="msrx-wordmark font-semibold">MSRX</span></span>
+  </footer>
+
+  <script src="core.js"></script>
+</body>
+</html>
