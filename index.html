@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <title>MSRX IncognitoCV — Free, Anonymous Resume Optimizer</title>
-  <meta name="description" content="Paste your resume and a job description, get an ATS-ready rewrite in seconds. No account, no data collection, completely free — bring your own Groq key and everything runs in your browser.">
+  <meta name="description" content="Paste your resume and a job description, get an ATS-ready rewrite in seconds. No account, no setup, completely free — nothing is ever saved or logged.">
   <link rel="canonical" href="https://cv.msrx.co.in/">
   <meta property="og:title" content="MSRX IncognitoCV — Free, Anonymous Resume Optimizer">
-  <meta property="og:description" content="100% incognito resume optimization. No login, no tracking, nothing stored.">
+  <meta property="og:description" content="Free, anonymous resume optimization. No login, no tracking, nothing ever stored.">
   <meta property="og:url" content="https://cv.msrx.co.in/">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
@@ -45,9 +45,9 @@
 
   <div class="border-b border-black/5 bg-white/50">
     <div class="max-w-7xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] text-[#6e6e73] font-medium">
-      <span class="flex items-center gap-1.5"><i data-lucide="eye-off" class="w-3.5 h-3.5 text-[#00c4df]"></i> No data collection</span>
+      <span class="flex items-center gap-1.5"><i data-lucide="eye-off" class="w-3.5 h-3.5 text-[#00c4df]"></i> Nothing saved or logged</span>
       <span class="flex items-center gap-1.5"><i data-lucide="user-x" class="w-3.5 h-3.5 text-[#00c4df]"></i> No login or identity needed</span>
-      <span class="flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-[#8b5cf6]"></i> 100% incognito</span>
+      <span class="flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-[#8b5cf6]"></i> No setup, no API keys</span>
       <span class="flex items-center gap-1.5"><i data-lucide="gift" class="w-3.5 h-3.5 text-[#8b5cf6]"></i> Completely free — every feature unlocked</span>
     </div>
   </div>
@@ -59,33 +59,23 @@
       <div class="card rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="flex items-start gap-2.5">
           <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">1</span>
-          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Paste your <span class="text-[#1d1d1f] font-semibold">free Groq key</span> — stays on this device</p>
-        </div>
-        <div class="flex items-start gap-2.5">
-          <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">2</span>
           <p class="text-[11px] text-[#6e6e73] leading-relaxed">Drop in your <span class="text-[#1d1d1f] font-semibold">resume</span> — PDF or text</p>
         </div>
         <div class="flex items-start gap-2.5">
+          <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">2</span>
+          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Paste the <span class="text-[#1d1d1f] font-semibold">job post</span> you're targeting</p>
+        </div>
+        <div class="flex items-start gap-2.5">
           <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">3</span>
-          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Paste the <span class="text-[#1d1d1f] font-semibold">job post</span> and run</p>
+          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Hit <span class="text-[#1d1d1f] font-semibold">optimize</span> — get your rewrite in seconds</p>
         </div>
       </div>
 
-      <div class="card rounded-2xl p-5 space-y-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2.5">
-            <i data-lucide="key" class="text-[#8b5cf6] w-4 h-4"></i>
-            <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Your Groq API Key</h2>
-          </div>
-          <a href="https://console.groq.com/keys" target="_blank" rel="noopener" class="text-[11px] text-[#00c4df] hover:underline flex items-center gap-1 font-medium">
-            <span>Get a free key</span>
-            <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
-          </a>
+      <div class="card rounded-2xl p-5 space-y-3">
+        <div class="flex items-center space-x-2.5">
+          <i data-lucide="settings" class="text-[#8b5cf6] w-4 h-4"></i>
+          <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Settings</h2>
         </div>
-        <p class="text-[11px] text-[#6e6e73] leading-relaxed">
-          Groq's free tier is plenty for this. Your key lives only in this browser and talks to Groq directly — MSRX never sees it.
-        </p>
-        <input type="password" id="apiKeyInput" placeholder="Paste gsk_..." autocomplete="off" class="w-full bg-[#f5f5f7] border border-gray-200 rounded-xl px-4 py-3 text-xs font-mono text-[#1d1d1f] focus:outline-none focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/15 transition-all">
         <div class="grid grid-cols-2 gap-3 items-end">
           <div>
             <label class="block text-[10px] uppercase tracking-widest text-[#a1a1a6] font-semibold mb-1.5">Model</label>
@@ -160,7 +150,7 @@
   </main>
 
   <footer class="border-t border-black/5 px-4 md:px-8 py-5 flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#a1a1a6] gap-2">
-    <span>Runs entirely in your browser. No servers, no accounts, no tracking.</span>
+    <span>Nothing is ever saved or logged. No accounts, no tracking.</span>
     <span>Built by <span class="msrx-wordmark font-semibold">MSRX</span></span>
   </footer>
 

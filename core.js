@@ -34,47 +34,28 @@ const AppCore = {
     return fullText.trim();
   },
 
-  async runInference(apiKey, model, systemPrompt, userContent) {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  async runInference(model, resume, job) {
+    const response = await fetch('/api/optimize', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.15,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContent },
-        ],
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, resume, job }),
     });
 
+    const payload = await response.json().catch(() => null);
+
     if (!response.ok) {
-      const errorPayload = await response.json().catch(() => null);
-      throw new Error(errorPayload?.error?.message || `Groq gateway returned ${response.status}.`);
+      throw new Error(payload?.error || `Optimization engine returned ${response.status}.`);
     }
 
-    const payload = await response.json();
-    return payload.choices[0].message.content;
+    return payload.result;
   },
 };
-
-const SYSTEM_PROMPT = `You are a precise, professional resume optimization engine running in a privacy-first sandbox.
-
-Rules you must follow exactly:
-1. Re-frame the candidate's existing achievements so they speak directly to the target job description's stated requirements and language.
-2. Convert every bullet point into the XYZ structure: "Accomplished [X] as measured by [Y], by doing [Z]".
-3. Never invent job titles, employers, dates, or metrics. If a number is missing, sharpen the framing of what is already there instead of fabricating one.
-4. Return clean, production-ready Markdown only — no preamble, no commentary, no wrapping explanation.`;
 
 const UI = {
   els: {},
 
   initializeInterface() {
     this.els = {
-      apiKey: document.getElementById('apiKeyInput'),
       resume: document.getElementById('resumeInput'),
       job: document.getElementById('jobInput'),
       model: document.getElementById('modelSelect'),
@@ -87,13 +68,11 @@ const UI = {
 
     if (window.lucide) lucide.createIcons();
 
-    this.els.apiKey.value = AppCore.retrieveData('groq_key');
     this.els.resume.value = AppCore.retrieveData('resume_cache');
     this.els.job.value = AppCore.retrieveData('job_cache');
     const savedModel = AppCore.retrieveData('model_pref');
     if (savedModel) this.els.model.value = savedModel;
 
-    this.els.apiKey.addEventListener('input', (e) => AppCore.persistData('groq_key', e.target.value.trim()));
     this.els.resume.addEventListener('input', (e) => AppCore.persistData('resume_cache', e.target.value));
     this.els.job.addEventListener('input', (e) => AppCore.persistData('job_cache', e.target.value));
     this.els.model.addEventListener('change', (e) => AppCore.persistData('model_pref', e.target.value));
@@ -119,7 +98,6 @@ const UI = {
 
   wipeAllData() {
     AppCore.purgeAllLocalState();
-    this.els.apiKey.value = '';
     this.els.resume.value = '';
     this.els.job.value = '';
     this.els.output.value = '';
@@ -153,23 +131,20 @@ const UI = {
   },
 
   async triggerExecutionPipeline() {
-    const apiKey = this.els.apiKey.value.trim();
     const resume = this.els.resume.value.trim();
     const job = this.els.job.value.trim();
     const model = this.els.model.value;
 
-    if (!apiKey || !resume || !job) {
-      alert('Add your Groq key, resume text, and target job description before running.');
+    if (!resume || !job) {
+      alert('Add your resume text and target job description before running.');
       return;
     }
 
     this.els.overlay.classList.remove('hidden');
     this.els.output.value = '';
 
-    const userContent = `CANDIDATE PROFILE:\n${resume}\n\nTARGET JOB DESCRIPTION:\n${job}`;
-
     try {
-      const result = await AppCore.runInference(apiKey, model, SYSTEM_PROMPT, userContent);
+      const result = await AppCore.runInference(model, resume, job);
       // .value assignment only (never innerHTML) — a hostile resume/job payload can't get rendered as markup.
       this.els.output.value = result;
     } catch (err) {
