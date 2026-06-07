@@ -79,6 +79,9 @@ const UI = {
       jobDropHint: document.getElementById('jobDropHint'),
       overlay: document.getElementById('loadingOverlay'),
       output: document.getElementById('outputArea'),
+      clearAllBtn: document.getElementById('clearAllBtn'),
+      optimizeBtn: document.getElementById('optimizeBtn'),
+      copyOutputBtn: document.getElementById('copyOutputBtn'),
     };
 
     if (window.lucide) lucide.createIcons();
@@ -95,6 +98,10 @@ const UI = {
     this.els.jobUploader.addEventListener('change', (e) => this.handleFileImport(e, this.els.job, 'job_cache'));
     this.bindDropzone(this.els.resumeDropzone, this.els.resumeDropHint, this.els.resume, 'resume_cache');
     this.bindDropzone(this.els.jobDropzone, this.els.jobDropHint, this.els.job, 'job_cache');
+
+    this.els.clearAllBtn.addEventListener('click', () => this.wipeAllData());
+    this.els.optimizeBtn.addEventListener('click', () => this.triggerExecutionPipeline());
+    this.els.copyOutputBtn.addEventListener('click', () => this.copyOutput());
   },
 
   bindDropzone(zone, hint, targetField, cacheKey) {
