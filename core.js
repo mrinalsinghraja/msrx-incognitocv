@@ -46,6 +46,125 @@ const AppCore = {
     throw new Error('unsupported-file-type');
   },
 
+  parseInlineRuns(text) {
+    const runs = [];
+    const re = /\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|\*([^*]+)\*|_([^_]+)_/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) runs.push({ text: text.slice(last, m.index), bold: false, italic: false });
+      if (m[1] !== undefined) runs.push({ text: m[1], bold: true, italic: true });
+      else if (m[2] !== undefined) runs.push({ text: m[2], bold: true, italic: false });
+      else runs.push({ text: m[3] ?? m[4], bold: false, italic: true });
+      last = re.lastIndex;
+    }
+    if (last < text.length) runs.push({ text: text.slice(last), bold: false, italic: false });
+    return runs.length ? runs : [{ text, bold: false, italic: false }];
+  },
+
+  parseMarkdownToBlocks(markdown) {
+    const blocks = [];
+    for (const raw of markdown.replace(/\r\n/g, '\n').split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+
+      const heading = line.match(/^(#{1,3})\s+(.*)$/);
+      if (heading) {
+        blocks.push({ type: `h${heading[1].length}`, runs: this.parseInlineRuns(heading[2]) });
+        continue;
+      }
+      const bullet = line.match(/^[-*]\s+(.*)$/);
+      if (bullet) {
+        blocks.push({ type: 'bullet', runs: this.parseInlineRuns(bullet[1]) });
+        continue;
+      }
+      blocks.push({ type: 'paragraph', runs: this.parseInlineRuns(line) });
+    }
+    return blocks;
+  },
+
+  async buildDocxBlob(blocks) {
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
+    const headingLevel = { h1: HeadingLevel.TITLE, h2: HeadingLevel.HEADING_1, h3: HeadingLevel.HEADING_2 };
+    const toRuns = (runs) => runs.map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic }));
+
+    const paragraphs = blocks.map((block) => {
+      if (block.type === 'bullet') {
+        return new Paragraph({ children: toRuns(block.runs), bullet: { level: 0 }, spacing: { after: 80 } });
+      }
+      if (headingLevel[block.type]) {
+        return new Paragraph({
+          children: toRuns(block.runs),
+          heading: headingLevel[block.type],
+          alignment: block.type === 'h1' ? AlignmentType.CENTER : AlignmentType.LEFT,
+          spacing: { before: block.type === 'h1' ? 0 : 220, after: 110 },
+        });
+      }
+      return new Paragraph({ children: toRuns(block.runs), spacing: { after: 90 } });
+    });
+
+    const document = new Document({
+      styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
+      sections: [{ properties: {}, children: paragraphs }],
+    });
+    return Packer.toBlob(document);
+  },
+
+  buildPdfBlob(blocks) {
+    const { jsPDF } = jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const marginX = 50;
+    const marginBottom = 50;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const maxWidth = pageWidth - marginX * 2;
+    const fontSize = { h1: 19, h2: 13, h3: 11.5, bullet: 10, paragraph: 10 };
+    let y = 56;
+
+    const ensureSpace = (height) => {
+      if (y + height > pageHeight - marginBottom) {
+        doc.addPage();
+        y = 56;
+      }
+    };
+
+    blocks.forEach((block) => {
+      const size = fontSize[block.type] ?? 10;
+      const lineHeight = size * 1.32;
+      const indent = block.type === 'bullet' ? 16 : 0;
+      const prefix = block.type === 'bullet' ? '•  ' : '';
+      const text = prefix + block.runs.map((r) => r.text).join('');
+
+      doc.setFontSize(size);
+      doc.setFont('helvetica', block.type.startsWith('h') ? 'bold' : 'normal');
+
+      doc.splitTextToSize(text, maxWidth - indent).forEach((line) => {
+        ensureSpace(lineHeight);
+        doc.text(line, marginX + indent, y);
+        y += lineHeight;
+      });
+
+      y += block.type.startsWith('h') ? 6 : 3;
+      if (block.type === 'h1') {
+        doc.setDrawColor(200);
+        doc.line(marginX, y, pageWidth - marginX, y);
+        y += 14;
+      }
+    });
+
+    return doc.output('blob');
+  },
+
+  sanitizeFilenameBase(raw) {
+    return (raw || '')
+      .replace(/\.[a-zA-Z0-9]{1,5}$/, '')
+      .replace(/[^\p{L}\p{N} _-]+/gu, ' ')
+      .trim()
+      .replace(/\s+/g, '_')
+      .slice(0, 60)
+      .replace(/^[_-]+|[_-]+$/g, '');
+  },
+
   async runInference(model, resume, job) {
     const response = await fetch('/api/optimize', {
       method: 'POST',
@@ -82,16 +201,23 @@ const UI = {
       clearAllBtn: document.getElementById('clearAllBtn'),
       optimizeBtn: document.getElementById('optimizeBtn'),
       copyOutputBtn: document.getElementById('copyOutputBtn'),
+      downloadWordBtn: document.getElementById('downloadWordBtn'),
+      downloadPdfBtn: document.getElementById('downloadPdfBtn'),
     };
 
     if (window.lucide) lucide.createIcons();
 
     this.els.resume.value = AppCore.retrieveData('resume_cache');
     this.els.job.value = AppCore.retrieveData('job_cache');
+    this.resumeFileBaseName = AppCore.retrieveData('resume_filename_cache');
     const savedModel = AppCore.retrieveData('model_pref');
     if (savedModel) this.els.model.value = savedModel;
 
-    this.els.resume.addEventListener('input', (e) => AppCore.persistData('resume_cache', e.target.value));
+    this.els.resume.addEventListener('input', (e) => {
+      AppCore.persistData('resume_cache', e.target.value);
+      this.resumeFileBaseName = '';
+      AppCore.persistData('resume_filename_cache', '');
+    });
     this.els.job.addEventListener('input', (e) => AppCore.persistData('job_cache', e.target.value));
     this.els.model.addEventListener('change', (e) => AppCore.persistData('model_pref', e.target.value));
     this.els.resumeUploader.addEventListener('change', (e) => this.handleFileImport(e, this.els.resume, 'resume_cache'));
@@ -102,6 +228,8 @@ const UI = {
     this.els.clearAllBtn.addEventListener('click', () => this.wipeAllData());
     this.els.optimizeBtn.addEventListener('click', () => this.triggerExecutionPipeline());
     this.els.copyOutputBtn.addEventListener('click', () => this.copyOutput());
+    this.els.downloadWordBtn.addEventListener('click', () => this.downloadAsWord());
+    this.els.downloadPdfBtn.addEventListener('click', () => this.downloadAsPdf());
   },
 
   bindDropzone(zone, hint, targetField, cacheKey) {
@@ -125,6 +253,7 @@ const UI = {
     this.els.job.value = '';
     this.els.output.value = '';
     this.els.model.selectedIndex = 0;
+    this.resumeFileBaseName = '';
     alert('Everything cleared — nothing left in this browser.');
   },
 
@@ -149,6 +278,10 @@ const UI = {
       const text = await AppCore.extractTextFromFile(file);
       targetField.value = text;
       AppCore.persistData(cacheKey, text);
+      if (cacheKey === 'resume_cache') {
+        this.resumeFileBaseName = file.name.replace(/\.[a-zA-Z0-9]{1,5}$/, '');
+        AppCore.persistData('resume_filename_cache', this.resumeFileBaseName);
+      }
     } catch (err) {
       alert('Could not read that file locally — try pasting the text directly instead.');
     }
@@ -175,6 +308,46 @@ const UI = {
       this.els.output.value = `Run failed:\n${err.message}`;
     } finally {
       this.els.overlay.classList.add('hidden');
+    }
+  },
+
+  deriveOutputFilenameBase() {
+    const fromFile = AppCore.sanitizeFilenameBase(this.resumeFileBaseName);
+    if (fromFile) return fromFile;
+    const firstLine = (this.els.resume.value.split('\n').find((l) => l.trim()) || '').trim();
+    return AppCore.sanitizeFilenameBase(firstLine) || 'resume';
+  },
+
+  triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+
+  async downloadAsWord() {
+    if (!this.els.output.value.trim()) return;
+    try {
+      const blocks = AppCore.parseMarkdownToBlocks(this.els.output.value);
+      const blob = await AppCore.buildDocxBlob(blocks);
+      this.triggerDownload(blob, `${this.deriveOutputFilenameBase()}_optimized.docx`);
+    } catch (err) {
+      alert('Could not generate the Word file — copy the Markdown instead.');
+    }
+  },
+
+  downloadAsPdf() {
+    if (!this.els.output.value.trim()) return;
+    try {
+      const blocks = AppCore.parseMarkdownToBlocks(this.els.output.value);
+      const blob = AppCore.buildPdfBlob(blocks);
+      this.triggerDownload(blob, `${this.deriveOutputFilenameBase()}_optimized.pdf`);
+    } catch (err) {
+      alert('Could not generate the PDF — copy the Markdown instead.');
     }
   },
 
