@@ -84,28 +84,59 @@ const AppCore = {
   },
 
   async buildDocxBlob(blocks) {
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docx;
-    const headingLevel = { h1: HeadingLevel.TITLE, h2: HeadingLevel.HEADING_1, h3: HeadingLevel.HEADING_2 };
-    const toRuns = (runs) => runs.map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic }));
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
+    const accent = '2C3E50';
+    const nameRule = { style: BorderStyle.SINGLE, size: 6, color: accent, space: 8 };
+    const sectionRule = { style: BorderStyle.SINGLE, size: 4, color: 'B0B8C0', space: 6 };
+    const toRuns = (runs, { uppercase, color } = {}) => runs.map((r) => new TextRun({
+      text: uppercase ? r.text.toUpperCase() : r.text,
+      bold: r.bold,
+      italics: r.italic,
+      color,
+    }));
 
     const paragraphs = blocks.map((block) => {
       if (block.type === 'bullet') {
-        return new Paragraph({ children: toRuns(block.runs), bullet: { level: 0 }, spacing: { after: 80 } });
-      }
-      if (headingLevel[block.type]) {
         return new Paragraph({
           children: toRuns(block.runs),
-          heading: headingLevel[block.type],
-          alignment: block.type === 'h1' ? AlignmentType.CENTER : AlignmentType.LEFT,
-          spacing: { before: block.type === 'h1' ? 0 : 220, after: 110 },
+          bullet: { level: 0 },
+          indent: { left: 360, hanging: 360 },
+          spacing: { line: 264, after: 80 },
         });
       }
-      return new Paragraph({ children: toRuns(block.runs), spacing: { after: 90 } });
+      if (block.type === 'h1') {
+        return new Paragraph({
+          children: toRuns(block.runs),
+          heading: HeadingLevel.TITLE,
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+          border: { bottom: nameRule },
+        });
+      }
+      if (block.type === 'h2') {
+        return new Paragraph({
+          children: toRuns(block.runs, { uppercase: true, color: accent }),
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 240, after: 100 },
+          border: { bottom: sectionRule },
+        });
+      }
+      if (block.type === 'h3') {
+        return new Paragraph({
+          children: toRuns(block.runs, { color: accent }),
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 160, after: 80 },
+        });
+      }
+      return new Paragraph({ children: toRuns(block.runs), spacing: { line: 264, after: 90 } });
     });
 
     const document = new Document({
       styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
-      sections: [{ properties: {}, children: paragraphs }],
+      sections: [{
+        properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } },
+        children: paragraphs,
+      }],
     });
     return Packer.toBlob(document);
   },
@@ -118,7 +149,10 @@ const AppCore = {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const maxWidth = pageWidth - marginX * 2;
-    const fontSize = { h1: 19, h2: 13, h3: 11.5, bullet: 10, paragraph: 10 };
+    const fontSize = { h1: 20, h2: 12.5, h3: 11.5, bullet: 10, paragraph: 10 };
+    const accent = [44, 62, 80];
+    const faintRule = [176, 184, 192];
+    const ink = [33, 33, 33];
     let y = 56;
 
     const ensureSpace = (height) => {
@@ -128,27 +162,82 @@ const AppCore = {
       }
     };
 
-    blocks.forEach((block) => {
-      const size = fontSize[block.type] ?? 10;
+    const rule = (color, weight) => {
+      doc.setDrawColor(...color);
+      doc.setLineWidth(weight);
+      doc.line(marginX, y, pageWidth - marginX, y);
+    };
+
+    const styleFor = (bold, italic) => (bold && italic ? 'bolditalic' : bold ? 'bold' : italic ? 'italic' : 'normal');
+
+    // jsPDF can't mix styles within one text() call, so wrapped runs are laid out
+    // word-by-word: measure each word in its own bold/italic style, wrap on overflow.
+    const drawRuns = (runs, { x: startX, width, size, bulletAt }) => {
       const lineHeight = size * 1.32;
-      const indent = block.type === 'bullet' ? 16 : 0;
-      const prefix = block.type === 'bullet' ? '•  ' : '';
-      const text = prefix + block.runs.map((r) => r.text).join('');
+      const tokens = [];
+      runs.forEach((r) => r.text.split(/(\s+)/).filter(Boolean)
+        .forEach((text) => tokens.push({ text, bold: r.bold, italic: r.italic })));
 
       doc.setFontSize(size);
-      doc.setFont('helvetica', block.type.startsWith('h') ? 'bold' : 'normal');
+      ensureSpace(lineHeight);
+      if (bulletAt !== undefined) {
+        doc.setFont('helvetica', 'normal');
+        doc.text('•', bulletAt, y);
+      }
 
-      doc.splitTextToSize(text, maxWidth - indent).forEach((line) => {
-        ensureSpace(lineHeight);
-        doc.text(line, marginX + indent, y);
-        y += lineHeight;
+      let x = startX;
+      tokens.forEach((t) => {
+        doc.setFont('helvetica', styleFor(t.bold, t.italic));
+        const w = doc.getTextWidth(t.text);
+        if (x > startX && x + w > startX + width) {
+          x = startX;
+          y += lineHeight;
+          ensureSpace(lineHeight);
+        }
+        doc.text(t.text, x, y);
+        x += w;
       });
+      y += lineHeight;
+    };
 
-      y += block.type.startsWith('h') ? 6 : 3;
+    blocks.forEach((block, i) => {
+      const isHeading = block.type.startsWith('h');
+      const isBullet = block.type === 'bullet';
+      const size = fontSize[block.type] ?? 10;
+      const indent = isBullet ? 14 : 0;
+
+      if (isHeading && i > 0) y += 10;
+
+      if (isHeading) {
+        const text = block.runs.map((r) => r.text).join('');
+        const display = block.type === 'h2' ? text.toUpperCase() : text;
+        const lineHeight = size * 1.32;
+        doc.setFontSize(size);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...accent);
+        doc.splitTextToSize(display, maxWidth).forEach((line) => {
+          ensureSpace(lineHeight);
+          doc.text(line, marginX, y);
+          y += lineHeight;
+        });
+      } else {
+        doc.setTextColor(...ink);
+        drawRuns(block.runs, {
+          x: marginX + indent,
+          width: maxWidth - indent,
+          size,
+          bulletAt: isBullet ? marginX : undefined,
+        });
+      }
+
+      y += isHeading ? 5 : 3;
       if (block.type === 'h1') {
-        doc.setDrawColor(200);
-        doc.line(marginX, y, pageWidth - marginX, y);
-        y += 14;
+        y += 6;
+        rule(accent, 1.1);
+        y += 16;
+      } else if (block.type === 'h2') {
+        rule(faintRule, 0.6);
+        y += 12;
       }
     });
 
