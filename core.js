@@ -17,20 +17,41 @@ const STORAGE_PREFIX = 'msrx_incognitocv_';
 // fallback). Theme 0 ("Clean") matches the long-standing default look, so the
 // header's Word/PDF buttons keep producing exactly what they always have.
 //
-// Names + tones are modeled on five real reference templates (user-supplied
-// PDFs, all deliberately monochrome — "Gray and White", "Black and White",
-// "Minimalist ... Grey" — so a grayscale palette is faithful to the source,
-// not a stand-in): Clean <- "Gray and White Simple Clean Resume", Engineering
-// <- "Science and Engineering Resume in White Black Simple Style", Infographic
-// <- "Black and White Simple Infographic Resume", Minimalist <- "Minimalist
-// White and Grey Professional Resume", Corporate <- "Black and White Simple
-// Business School Graduate Corporate Resume" (the one with a serif display
-// name in the source -> serif: true here too).
+// Names are modeled on five real reference templates (user-supplied PDFs):
+// Clean <- "Gray and White Simple Clean Resume", Engineering <- "Science and
+// Engineering Resume in White Black Simple Style", Infographic <- "Black and
+// White Simple Infographic Resume", Minimalist <- "Minimalist White and Grey
+// Professional Resume", Corporate <- "Black and White Simple Business School
+// Graduate Corporate Resume".
+//
+// First pass copied those templates' literal near-monochrome tones 1:1, but
+// real generated output (verified against the user's own optimized PDFs)
+// showed 4 of 5 landing in the same muted dark-gray band — technically
+// distinct (different hex baked into each file) but indistinguishable at a
+// glance, exactly the "do you see a difference?" the user flagged. Redesigned
+// as two clearly separate hue families plus the existing near-black serif
+// anchor — min pairwise color distance ~32 -> ~67, every neighbor differs in
+// hue *and* lightness *and*, for two of them, font:
+//   Clean        cool slate-blue, dark   (~23% lum)  <- locked, see below
+//   Engineering  warm umber-brown, dark  (~36% lum)  — cool/dark's warm twin
+//   Infographic  cool steel-blue, mid    (~50% lum)  — clean's lighter twin
+//   Minimalist   warm stone-tan, light   (~67% lum)  — engineering's lighter
+//                                                       twin, *and* serif, so
+//                                                       its nearest neighbor
+//                                                       (Infographic) differs
+//                                                       in hue + lightness +
+//                                                       typeface all at once
+//   Corporate    near-black, darkest     (~10% lum), serif (matches that
+//                template's elegant serif display name)
+//
+// Theme 0 ("Clean")'s accent/faint are the two values the pre-gallery header
+// Word/PDF buttons have always hardcoded — changing either would change what
+// those long-standing buttons produce. Locked as-is; only id/label changed.
 const RESUME_THEMES = [
   { id: 'clean', label: 'Clean', accent: '2C3E50', faint: 'B0B8C0', serif: false },
-  { id: 'engineering', label: 'Engineering', accent: '2E3033', faint: 'D6D5D1', serif: false },
-  { id: 'infographic', label: 'Infographic', accent: '74716C', faint: 'DEDBD6', serif: false },
-  { id: 'minimalist', label: 'Minimalist', accent: '8B8782', faint: 'E7E5E1', serif: false },
+  { id: 'engineering', label: 'Engineering', accent: '6B5847', faint: 'C6BFB9', serif: false },
+  { id: 'infographic', label: 'Infographic', accent: '768089', faint: 'CACED2', serif: false },
+  { id: 'minimalist', label: 'Minimalist', accent: 'BFA98F', faint: 'E6DED4', serif: true },
   { id: 'corporate', label: 'Corporate', accent: '1A1A1A', faint: 'CACACA', serif: true },
 ];
 
