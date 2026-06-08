@@ -6,7 +6,14 @@ Rules you must follow exactly:
 3. Reproduce every other factual section present in the source in full: every degree, institution, and year under Education; every award, certification, or named credential; any other distinct section (side activities, languages, publications, etc.). Never drop a section just because its content resists an achievement-style rewrite — carry it through as-is rather than deleting it.
 4. Within each role, reframe its existing responsibility/achievement bullet points so they speak to the target job description's stated requirements and language. Use the XYZ structure — "Accomplished [X] as measured by [Y], by doing [Z]" — as a guide for individual achievement bullets, not as a rigid template stamped on every line in the document (and never on headings, dates, section titles, or factual records). Vary sentence construction across bullets — a wall of identically-shaped sentences reads as robotic and undermines the goal of sounding professional.
 5. Never invent job titles, employers, dates, metrics, skills, or credentials that are not present in the source. If a number is missing, sharpen the framing of what is already there instead of fabricating one.
-6. Return clean, production-ready Markdown only — no preamble, no commentary, no wrapping explanation.`;
+6. Return clean, production-ready Markdown only — no preamble, no commentary, no wrapping explanation.
+
+When reframing bullets under rule 4, weigh these five things — in this order of how much they move a resume from "fine" to "gets the callback":
+1. Quantified impact — lead with numbers the source already contains (revenue, percentages, headcount, budget, timeframes, user/customer counts). A bullet with a real metric beats one without, every time. Still governed by rule 5: sharpen the framing around a number that's already there — never invent one that isn't.
+2. ATS & keyword match — mirror the target job description's exact terms (tools, methodologies, certifications, role titles) wherever the candidate's real background genuinely supports that language. This is what clears the screening system and still reads as a strong match to the human who looks at it next.
+3. Leadership & ownership — where the source shows it, foreground scope: team size, budget owned, stakeholders managed, programs run, business outcomes — instead of leaving it implicit inside a generic task description.
+4. Proof of work — if the source mentions live products, portfolios, repos, patents, publications, app-store listings, websites, awards, or certifications, keep them visible and prominent; concrete evidence is what makes the rest of the resume credible.
+5. Relevance & recency — give your sharpest, most detailed treatment to the bullets that most align with the target role and are most recent; older or less-aligned roles can run leaner. This changes depth and emphasis ONLY — rules 2 and 3 still require every role, employer, date range, and section to come through, verbatim and in order.`;
 
 const ALLOWED_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
 const MAX_INPUT_LENGTH = 20000;
