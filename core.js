@@ -14,14 +14,24 @@ const STORAGE_PREFIX = 'msrx_incognitocv_';
 // `faint` are 6-digit hex strings (no leading #). `serif: false` → Calibri /
 // helvetica / system-ui; `serif: true` → Cambria / times / Georgia (all
 // built into their respective renderers — zero risk of a missing-font
-// fallback). Theme 0 ("Slate") matches the long-standing default look, so the
+// fallback). Theme 0 ("Clean") matches the long-standing default look, so the
 // header's Word/PDF buttons keep producing exactly what they always have.
+//
+// Names + tones are modeled on five real reference templates (user-supplied
+// PDFs, all deliberately monochrome — "Gray and White", "Black and White",
+// "Minimalist ... Grey" — so a grayscale palette is faithful to the source,
+// not a stand-in): Clean <- "Gray and White Simple Clean Resume", Engineering
+// <- "Science and Engineering Resume in White Black Simple Style", Infographic
+// <- "Black and White Simple Infographic Resume", Minimalist <- "Minimalist
+// White and Grey Professional Resume", Corporate <- "Black and White Simple
+// Business School Graduate Corporate Resume" (the one with a serif display
+// name in the source -> serif: true here too).
 const RESUME_THEMES = [
-  { id: 'slate', label: 'Slate', accent: '2C3E50', faint: 'B0B8C0', serif: false },
-  { id: 'navy', label: 'Navy', accent: '1B2A4A', faint: 'AEB9D4', serif: true },
-  { id: 'forest', label: 'Forest', accent: '1B4332', faint: 'BFD3C7', serif: false },
-  { id: 'burgundy', label: 'Burgundy', accent: '6E1F2A', faint: 'D9BFC4', serif: true },
-  { id: 'charcoal', label: 'Charcoal', accent: '33363B', faint: 'CBC9C6', serif: false },
+  { id: 'clean', label: 'Clean', accent: '2C3E50', faint: 'B0B8C0', serif: false },
+  { id: 'engineering', label: 'Engineering', accent: '2E3033', faint: 'D6D5D1', serif: false },
+  { id: 'infographic', label: 'Infographic', accent: '74716C', faint: 'DEDBD6', serif: false },
+  { id: 'minimalist', label: 'Minimalist', accent: '8B8782', faint: 'E7E5E1', serif: false },
+  { id: 'corporate', label: 'Corporate', accent: '1A1A1A', faint: 'CACACA', serif: true },
 ];
 
 const AppCore = {
