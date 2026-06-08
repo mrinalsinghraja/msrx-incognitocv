@@ -25,6 +25,41 @@
     .msrx-cta { background: var(--msrx-gradient); }
     textarea::-webkit-scrollbar { width: 6px; }
     textarea::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+
+    /* Style gallery: a themed "page" rendering plus thumbnail/zoom scaffolding.
+       --rp-accent / --rp-faint are set inline per-card by core.js from RESUME_THEMES. */
+    .resume-preview-page {
+      width: 600px; padding: 42px 48px; background: #ffffff; color: #2a2a2d;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 11px; line-height: 1.6;
+    }
+    .resume-preview-page.rp-serif { font-family: Georgia, Cambria, "Times New Roman", serif; }
+    .resume-preview-page .rp-name {
+      margin: 0 0 14px; padding-bottom: 14px; border-bottom: 2px solid var(--rp-accent);
+      text-align: center; font-size: 21px; font-weight: 700; letter-spacing: 0.01em; color: #1d1d1f;
+    }
+    .resume-preview-page .rp-section {
+      margin: 18px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--rp-faint);
+      font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--rp-accent);
+    }
+    .resume-preview-page .rp-section:first-child { margin-top: 0; }
+    .resume-preview-page .rp-subhead { margin: 10px 0 3px; font-size: 12px; font-weight: 700; color: var(--rp-accent); }
+    .resume-preview-page .rp-paragraph { margin: 0 0 7px; }
+    .resume-preview-page .rp-bullet { position: relative; margin: 0 0 5px; padding-left: 15px; }
+    .resume-preview-page .rp-bullet .rp-dot { position: absolute; left: 0; color: var(--rp-accent); }
+
+    .preview-thumb {
+      position: relative; width: 120px; height: 160px; flex: none; overflow: hidden;
+      border-radius: 9px; border: 1px solid rgba(0,0,0,0.08); background: #ffffff;
+    }
+    .preview-thumb .resume-preview-page { transform: scale(0.2); transform-origin: top left; }
+
+    .preview-action-btn {
+      display: flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+      border-radius: 8px; border: 1px solid rgba(0,0,0,0.06); background: #f5f5f7; color: #6e6e73;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+    .preview-action-btn:hover { background: #eef0f3; color: #1d1d1f; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-[#8b5cf6]/15">
@@ -145,7 +180,7 @@
       </button>
     </section>
 
-    <section class="lg:col-span-7 flex flex-col">
+    <section class="lg:col-span-7 flex flex-col space-y-5">
       <div class="card rounded-2xl flex-1 flex flex-col overflow-hidden relative min-h-[480px]">
         <div class="flex items-center justify-between px-5 py-3.5 border-b border-black/5">
           <div class="flex items-center space-x-2.5">
@@ -174,8 +209,87 @@
           <p class="text-xs font-medium text-[#6e6e73]">Optimizing your resume...</p>
         </div>
       </div>
+
+      <div class="card rounded-2xl p-5 space-y-3">
+        <div class="flex items-center space-x-2.5">
+          <i data-lucide="palette" class="text-[#8b5cf6] w-4 h-4"></i>
+          <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Choose Your Style</h2>
+        </div>
+        <p class="text-[10px] text-[#a1a1a6]">Same optimized content, 5 looks. Tap the magnifying glass to preview one full-size, then download your favorite as Word or PDF.</p>
+        <div class="flex items-start gap-3 overflow-x-auto pb-1">
+
+          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="slate">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Slate</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Slate" aria-label="Quick preview the Slate style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Slate as Word" aria-label="Download the Slate style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Slate as PDF" aria-label="Download the Slate style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="navy">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Navy</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Navy" aria-label="Quick preview the Navy style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Navy as Word" aria-label="Download the Navy style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Navy as PDF" aria-label="Download the Navy style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="forest">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Forest</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Forest" aria-label="Quick preview the Forest style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Forest as Word" aria-label="Download the Forest style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Forest as PDF" aria-label="Download the Forest style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="burgundy">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Burgundy</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Burgundy" aria-label="Quick preview the Burgundy style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Burgundy as Word" aria-label="Download the Burgundy style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Burgundy as PDF" aria-label="Download the Burgundy style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="charcoal">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Charcoal</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Charcoal" aria-label="Quick preview the Charcoal style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Charcoal as Word" aria-label="Download the Charcoal style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Charcoal as PDF" aria-label="Download the Charcoal style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </section>
   </main>
+
+  <div id="previewModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8">
+    <div id="previewModalBackdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-black/5 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="search" class="text-[#8b5cf6] w-4 h-4"></i>
+          <span id="previewModalLabel" class="text-xs font-semibold text-[#1d1d1f]">Quick preview</span>
+        </div>
+        <button id="previewModalCloseBtn" type="button" class="text-[#6e6e73] hover:text-[#1d1d1f] transition-colors" aria-label="Close preview">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="overflow-auto p-6 sm:p-8 flex justify-center bg-[#f5f5f7]">
+        <div id="previewModalPage"></div>
+      </div>
+    </div>
+  </div>
 
   <footer class="border-t border-black/5 px-4 md:px-8 py-5 flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#a1a1a6] gap-2">
     <span>Nothing is ever saved or logged. No accounts, no tracking.</span>

@@ -8,6 +8,22 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 const STORAGE_PREFIX = 'msrx_incognitocv_';
 
+// Five visual themes for the resume preview gallery — same optimized content,
+// different color palette + typeface pairing, shared verbatim by the DOCX,
+// PDF, and HTML preview renderers so every surface stays in sync. `accent`/
+// `faint` are 6-digit hex strings (no leading #). `serif: false` → Calibri /
+// helvetica / system-ui; `serif: true` → Cambria / times / Georgia (all
+// built into their respective renderers — zero risk of a missing-font
+// fallback). Theme 0 ("Slate") matches the long-standing default look, so the
+// header's Word/PDF buttons keep producing exactly what they always have.
+const RESUME_THEMES = [
+  { id: 'slate', label: 'Slate', accent: '2C3E50', faint: 'B0B8C0', serif: false },
+  { id: 'navy', label: 'Navy', accent: '1B2A4A', faint: 'AEB9D4', serif: true },
+  { id: 'forest', label: 'Forest', accent: '1B4332', faint: 'BFD3C7', serif: false },
+  { id: 'burgundy', label: 'Burgundy', accent: '6E1F2A', faint: 'D9BFC4', serif: true },
+  { id: 'charcoal', label: 'Charcoal', accent: '33363B', faint: 'CBC9C6', serif: false },
+];
+
 const AppCore = {
   persistData(key, payload) {
     localStorage.setItem(`${STORAGE_PREFIX}${key}`, payload);
@@ -83,11 +99,20 @@ const AppCore = {
     return blocks;
   },
 
-  async buildDocxBlob(blocks) {
+  // Converts a 6-digit hex color string (no leading #) to an [r,g,b] array —
+  // jsPDF's color APIs (setTextColor/setDrawColor) take RGB components, while
+  // themes store colors as hex strings shared with the DOCX/HTML renderers.
+  hexToRgb(hex) {
+    const n = parseInt(hex, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  },
+
+  async buildDocxBlob(blocks, theme = RESUME_THEMES[0]) {
     const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = docx;
-    const accent = '2C3E50';
+    const accent = theme.accent;
+    const fontFamily = theme.serif ? 'Cambria' : 'Calibri';
     const nameRule = { style: BorderStyle.SINGLE, size: 6, color: accent, space: 8 };
-    const sectionRule = { style: BorderStyle.SINGLE, size: 4, color: 'B0B8C0', space: 6 };
+    const sectionRule = { style: BorderStyle.SINGLE, size: 4, color: theme.faint, space: 6 };
     const toRuns = (runs, { uppercase, color } = {}) => runs.map((r) => new TextRun({
       text: uppercase ? r.text.toUpperCase() : r.text,
       bold: r.bold,
@@ -133,7 +158,7 @@ const AppCore = {
     });
 
     const document = new Document({
-      styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
+      styles: { default: { document: { run: { font: fontFamily, size: 22 } } } },
       sections: [{
         properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } },
         children: paragraphs,
@@ -142,7 +167,7 @@ const AppCore = {
     return Packer.toBlob(document);
   },
 
-  buildPdfBlob(blocks) {
+  buildPdfBlob(blocks, theme = RESUME_THEMES[0]) {
     const { jsPDF } = jspdf;
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const marginX = 50;
@@ -151,8 +176,9 @@ const AppCore = {
     const pageHeight = doc.internal.pageSize.getHeight();
     const maxWidth = pageWidth - marginX * 2;
     const fontSize = { h1: 20, h2: 12.5, h3: 11.5, h4: 11, h5: 10.5, h6: 10, bullet: 10, paragraph: 10 };
-    const accent = [44, 62, 80];
-    const faintRule = [176, 184, 192];
+    const fontFamily = theme.serif ? 'times' : 'helvetica';
+    const accent = this.hexToRgb(theme.accent);
+    const faintRule = this.hexToRgb(theme.faint);
     const ink = [33, 33, 33];
     let y = 56;
 
@@ -182,13 +208,13 @@ const AppCore = {
       doc.setFontSize(size);
       ensureSpace(lineHeight);
       if (bulletAt !== undefined) {
-        doc.setFont('helvetica', 'normal');
+        doc.setFont(fontFamily, 'normal');
         doc.text('•', bulletAt, y);
       }
 
       let x = startX;
       tokens.forEach((t) => {
-        doc.setFont('helvetica', styleFor(t.bold, t.italic));
+        doc.setFont(fontFamily, styleFor(t.bold, t.italic));
         const w = doc.getTextWidth(t.text);
         if (x > startX && x + w > startX + width) {
           x = startX;
@@ -214,7 +240,7 @@ const AppCore = {
         const display = block.type === 'h2' ? text.toUpperCase() : text;
         const lineHeight = size * 1.32;
         doc.setFontSize(size);
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(fontFamily, 'bold');
         doc.setTextColor(...accent);
         doc.splitTextToSize(display, maxWidth).forEach((line) => {
           ensureSpace(lineHeight);
@@ -243,6 +269,76 @@ const AppCore = {
     });
 
     return doc.output('blob');
+  },
+
+  // Builds a themed on-screen preview of the optimized resume as real DOM
+  // nodes — mirrors the visual language of buildDocxBlob/buildPdfBlob (centered
+  // bordered name, uppercase accent-colored section dividers, accent sub-heads,
+  // hanging-indent bullets) so each thumbnail truthfully represents what that
+  // card's downloads will look like.
+  //
+  // SECURITY: every fragment of `runs[].text` — ultimately AI-generated /
+  // user-influenced content — is inserted via textContent / TextNode only,
+  // and elements are composed with createElement/append, never innerHTML or
+  // string-concatenated markup. A hostile resume/job payload cannot be
+  // parsed as HTML this way. This mirrors the existing `.value`-only rule for
+  // #outputArea (see triggerExecutionPipeline) — preserve that posture if you
+  // ever touch this.
+  renderResumePreview(blocks, theme) {
+    const page = document.createElement('div');
+    page.className = `resume-preview-page${theme.serif ? ' rp-serif' : ''}`;
+    page.style.setProperty('--rp-accent', `#${theme.accent}`);
+    page.style.setProperty('--rp-faint', `#${theme.faint}`);
+
+    const runNode = (run) => {
+      let node = document.createTextNode(run.text);
+      if (run.bold) {
+        const strong = document.createElement('strong');
+        strong.appendChild(node);
+        node = strong;
+      }
+      if (run.italic) {
+        const em = document.createElement('em');
+        em.appendChild(node);
+        node = em;
+      }
+      return node;
+    };
+    const appendRuns = (el, runs) => runs.forEach((run) => el.appendChild(runNode(run)));
+
+    blocks.forEach((block) => {
+      const level = parseInt(block.type.slice(1), 10) || 0;
+      let el;
+      if (block.type === 'bullet') {
+        el = document.createElement('p');
+        el.className = 'rp-bullet';
+        const dot = document.createElement('span');
+        dot.className = 'rp-dot';
+        dot.textContent = '•';
+        const body = document.createElement('span');
+        appendRuns(body, block.runs);
+        el.append(dot, body);
+      } else if (block.type === 'h1') {
+        el = document.createElement('h1');
+        el.className = 'rp-name';
+        appendRuns(el, block.runs);
+      } else if (block.type === 'h2') {
+        el = document.createElement('h2');
+        el.className = 'rp-section';
+        appendRuns(el, block.runs);
+      } else if (level >= 3) {
+        el = document.createElement('h3');
+        el.className = 'rp-subhead';
+        appendRuns(el, block.runs);
+      } else {
+        el = document.createElement('p');
+        el.className = 'rp-paragraph';
+        appendRuns(el, block.runs);
+      }
+      page.appendChild(el);
+    });
+
+    return page;
   },
 
   sanitizeFilenameBase(raw) {
@@ -274,6 +370,7 @@ const AppCore = {
 
 const UI = {
   els: {},
+  previewBlocks: null,
 
   initializeInterface() {
     this.els = {
@@ -293,6 +390,12 @@ const UI = {
       copyOutputBtn: document.getElementById('copyOutputBtn'),
       downloadWordBtn: document.getElementById('downloadWordBtn'),
       downloadPdfBtn: document.getElementById('downloadPdfBtn'),
+      previewCards: document.querySelectorAll('.preview-card'),
+      previewModal: document.getElementById('previewModal'),
+      previewModalBackdrop: document.getElementById('previewModalBackdrop'),
+      previewModalPage: document.getElementById('previewModalPage'),
+      previewModalLabel: document.getElementById('previewModalLabel'),
+      previewModalCloseBtn: document.getElementById('previewModalCloseBtn'),
     };
 
     if (window.lucide) lucide.createIcons();
@@ -320,6 +423,13 @@ const UI = {
     this.els.copyOutputBtn.addEventListener('click', () => this.copyOutput());
     this.els.downloadWordBtn.addEventListener('click', () => this.downloadAsWord());
     this.els.downloadPdfBtn.addEventListener('click', () => this.downloadAsPdf());
+
+    this.bindPreviewCards();
+    this.els.previewModalCloseBtn.addEventListener('click', () => this.closePreviewModal());
+    this.els.previewModalBackdrop.addEventListener('click', () => this.closePreviewModal());
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !this.els.previewModal.classList.contains('hidden')) this.closePreviewModal();
+    });
   },
 
   bindDropzone(zone, hint, targetField, cacheKey) {
@@ -337,6 +447,19 @@ const UI = {
     });
   },
 
+  // Wires each style-gallery card's zoom/Word/PDF buttons to its theme, looked
+  // up by the card's `data-theme-id` (not array position) so the HTML and the
+  // RESUME_THEMES list stay in sync even if either gets reordered later.
+  bindPreviewCards() {
+    this.els.previewCards.forEach((card) => {
+      const theme = RESUME_THEMES.find((t) => t.id === card.dataset.themeId);
+      if (!theme) return;
+      card.querySelector('.preview-zoom-btn').addEventListener('click', () => this.openPreviewModal(theme));
+      card.querySelector('.preview-word-btn').addEventListener('click', () => this.downloadThemedFile('docx', theme));
+      card.querySelector('.preview-pdf-btn').addEventListener('click', () => this.downloadThemedFile('pdf', theme));
+    });
+  },
+
   wipeAllData() {
     AppCore.purgeAllLocalState();
     this.els.resume.value = '';
@@ -344,6 +467,7 @@ const UI = {
     this.els.output.value = '';
     this.els.model.selectedIndex = 0;
     this.resumeFileBaseName = '';
+    this.renderThemePreviews('');
     alert('Everything cleared — nothing left in this browser.');
   },
 
@@ -394,8 +518,10 @@ const UI = {
       const result = await AppCore.runInference(model, resume, job);
       // .value assignment only (never innerHTML) — a hostile resume/job payload can't get rendered as markup.
       this.els.output.value = result;
+      this.renderThemePreviews(result);
     } catch (err) {
       this.els.output.value = `Run failed:\n${err.message}`;
+      this.renderThemePreviews('');
     } finally {
       this.els.overlay.classList.add('hidden');
     }
@@ -438,6 +564,49 @@ const UI = {
       this.triggerDownload(blob, `${this.deriveOutputFilenameBase()}_optimized.pdf`);
     } catch (err) {
       alert('Could not generate the PDF — copy the Markdown instead.');
+    }
+  },
+
+  // Parses the optimized Markdown into blocks ONCE (cached on `this.previewBlocks`,
+  // reused by every card's zoom/Word/PDF action — no need to re-parse 15 times),
+  // then (re)draws each gallery card's thumbnail in its own theme. Pass '' to
+  // clear the gallery back to its empty state (used on failed runs and on wipe).
+  renderThemePreviews(markdown) {
+    this.previewBlocks = markdown.trim() ? AppCore.parseMarkdownToBlocks(markdown) : null;
+    this.els.previewCards.forEach((card) => {
+      const theme = RESUME_THEMES.find((t) => t.id === card.dataset.themeId);
+      const thumb = card.querySelector('[data-role="thumb"]');
+      if (!theme || !thumb) return;
+      thumb.replaceChildren();
+      if (this.previewBlocks) thumb.appendChild(AppCore.renderResumePreview(this.previewBlocks, theme));
+    });
+  },
+
+  openPreviewModal(theme) {
+    if (!this.previewBlocks) return;
+    this.els.previewModalLabel.textContent = `${theme.label} — quick preview`;
+    this.els.previewModalPage.replaceChildren(AppCore.renderResumePreview(this.previewBlocks, theme));
+    this.els.previewModal.classList.remove('hidden');
+  },
+
+  closePreviewModal() {
+    this.els.previewModal.classList.add('hidden');
+    this.els.previewModalPage.replaceChildren();
+  },
+
+  async downloadThemedFile(format, theme) {
+    if (!this.previewBlocks) return;
+    try {
+      const base = `${this.deriveOutputFilenameBase()}_optimized_${theme.id}`;
+      if (format === 'docx') {
+        const blob = await AppCore.buildDocxBlob(this.previewBlocks, theme);
+        this.triggerDownload(blob, `${base}.docx`);
+      } else {
+        const blob = AppCore.buildPdfBlob(this.previewBlocks, theme);
+        this.triggerDownload(blob, `${base}.pdf`);
+      }
+    } catch (err) {
+      alert('Could not generate that file — copy the Markdown instead.');
     }
   },
 
