@@ -68,12 +68,12 @@ const AppCore = {
       const line = raw.trim();
       if (!line) continue;
 
-      const heading = line.match(/^(#{1,3})\s+(.*)$/);
+      const heading = line.match(/^(#{1,6})\s+(.*)$/);
       if (heading) {
         blocks.push({ type: `h${heading[1].length}`, runs: this.parseInlineRuns(heading[2]) });
         continue;
       }
-      const bullet = line.match(/^[-*]\s+(.*)$/);
+      const bullet = line.match(/^[-+*]\s+(.*)$/);
       if (bullet) {
         blocks.push({ type: 'bullet', runs: this.parseInlineRuns(bullet[1]) });
         continue;
@@ -96,6 +96,7 @@ const AppCore = {
     }));
 
     const paragraphs = blocks.map((block) => {
+      const level = parseInt(block.type.slice(1), 10) || 0;
       if (block.type === 'bullet') {
         return new Paragraph({
           children: toRuns(block.runs),
@@ -121,7 +122,7 @@ const AppCore = {
           border: { bottom: sectionRule },
         });
       }
-      if (block.type === 'h3') {
+      if (level >= 3) {
         return new Paragraph({
           children: toRuns(block.runs, { color: accent }),
           heading: HeadingLevel.HEADING_2,
@@ -149,7 +150,7 @@ const AppCore = {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const maxWidth = pageWidth - marginX * 2;
-    const fontSize = { h1: 20, h2: 12.5, h3: 11.5, bullet: 10, paragraph: 10 };
+    const fontSize = { h1: 20, h2: 12.5, h3: 11.5, h4: 11, h5: 10.5, h6: 10, bullet: 10, paragraph: 10 };
     const accent = [44, 62, 80];
     const faintRule = [176, 184, 192];
     const ink = [33, 33, 33];
