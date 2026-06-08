@@ -27,25 +27,64 @@
     textarea::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
 
     /* Style gallery: a themed "page" rendering plus thumbnail/zoom scaffolding.
-       --rp-accent / --rp-faint are set inline per-card by core.js from RESUME_THEMES. */
+       --rp-accent / --rp-faint / --rp-name-font / --rp-body-font / --rp-density
+       are set inline per-card by core.js from RESUME_THEMES (see FONT_STACKS /
+       DENSITY_SCALE). Default values below (sans/sans/1) reproduce the
+       original fixed look exactly — that's what keeps theme 0 byte-identical.
+       nameStyle/sectionStyle pick the modifier classes further down; 'rule'/
+       'underline' stay bare (no modifier) so they inherit the legacy rules
+       untouched rather than re-deriving an equivalent. */
     .resume-preview-page {
       width: 600px; padding: 42px 48px; background: #ffffff; color: #2a2a2d;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      font-size: 11px; line-height: 1.6;
+      font-family: var(--rp-body-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+      font-size: 11px; line-height: calc(1.6 * var(--rp-density, 1));
     }
-    .resume-preview-page.rp-serif { font-family: Georgia, Cambria, "Times New Roman", serif; }
     .resume-preview-page .rp-name {
-      margin: 0 0 14px; padding-bottom: 14px; border-bottom: 2px solid var(--rp-accent);
+      margin: 0 0 calc(14px * var(--rp-density, 1)); padding-bottom: calc(14px * var(--rp-density, 1));
+      border-bottom: 2px solid var(--rp-accent); font-family: var(--rp-name-font, inherit);
       text-align: center; font-size: 21px; font-weight: 700; letter-spacing: 0.01em; color: #1d1d1f;
     }
+    /* nameStyle modifiers — combined-class selectors so specificity beats the
+       base .rp-name rule regardless of source order (see comment above). */
+    .resume-preview-page .rp-name.rp-name--band {
+      text-align: left; border-bottom: none; border-radius: 4px;
+      background: var(--rp-accent); color: #ffffff; padding: 12px 18px;
+    }
+    .resume-preview-page .rp-name.rp-name--monogram {
+      text-align: left; border-bottom: none; display: flex; align-items: center; gap: 10px;
+    }
+    .resume-preview-page .rp-name.rp-name--sideRule {
+      text-align: left; border-bottom: none; padding-bottom: 0;
+      border-left: 4px solid var(--rp-accent); padding-left: 14px;
+    }
+    .resume-preview-page .rp-monogram-badge {
+      display: inline-flex; align-items: center; justify-content: center; flex: none;
+      width: 28px; height: 28px; border-radius: 50%; background: var(--rp-accent);
+      color: #ffffff; font-size: 11px; font-weight: 700; font-family: var(--rp-body-font, inherit);
+    }
     .resume-preview-page .rp-section {
-      margin: 18px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--rp-faint);
+      margin: calc(18px * var(--rp-density, 1)) 0 calc(8px * var(--rp-density, 1));
+      padding-bottom: 5px; border-bottom: 1px solid var(--rp-faint);
       font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--rp-accent);
     }
     .resume-preview-page .rp-section:first-child { margin-top: 0; }
-    .resume-preview-page .rp-subhead { margin: 10px 0 3px; font-size: 12px; font-weight: 700; color: var(--rp-accent); }
-    .resume-preview-page .rp-paragraph { margin: 0 0 7px; }
-    .resume-preview-page .rp-bullet { position: relative; margin: 0 0 5px; padding-left: 15px; }
+    /* sectionStyle modifiers */
+    .resume-preview-page .rp-section.rp-section--bracket {
+      border-bottom: none; letter-spacing: 0.04em;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    .resume-preview-page .rp-section.rp-section--bracket::before { content: "[ "; }
+    .resume-preview-page .rp-section.rp-section--bracket::after { content: " ]"; }
+    .resume-preview-page .rp-section.rp-section--band {
+      display: inline-block; border-bottom: none; border-radius: 3px;
+      background: var(--rp-accent); color: #ffffff; padding: 3px 12px;
+    }
+    .resume-preview-page .rp-subhead {
+      margin: calc(10px * var(--rp-density, 1)) 0 calc(3px * var(--rp-density, 1));
+      font-size: 12px; font-weight: 700; color: var(--rp-accent);
+    }
+    .resume-preview-page .rp-paragraph { margin: 0 0 calc(7px * var(--rp-density, 1)); }
+    .resume-preview-page .rp-bullet { position: relative; margin: 0 0 calc(5px * var(--rp-density, 1)); padding-left: 15px; }
     .resume-preview-page .rp-bullet .rp-dot { position: absolute; left: 0; color: var(--rp-accent); }
 
     .preview-thumb {
@@ -215,10 +254,10 @@
           <i data-lucide="palette" class="text-[#8b5cf6] w-4 h-4"></i>
           <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Choose Your Style</h2>
         </div>
-        <p class="text-[10px] text-[#a1a1a6]">Same optimized content, 5 looks. Tap the magnifying glass to preview one full-size, then download your favorite as Word or PDF.</p>
-        <div class="flex items-start gap-3 overflow-x-auto pb-1">
+        <p class="text-[10px] text-[#a1a1a6]">Same optimized content, 10 looks — two rows of five. Tap the magnifying glass to preview one full-size, then download your favorite as Word or PDF.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
 
-          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="clean">
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="clean">
             <div class="preview-thumb" data-role="thumb"></div>
             <span class="text-[10px] font-semibold text-[#1d1d1f]">Clean</span>
             <div class="flex items-center gap-2">
@@ -228,43 +267,93 @@
             </div>
           </div>
 
-          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="engineering">
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="banner">
             <div class="preview-thumb" data-role="thumb"></div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Engineering</span>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Banner</span>
             <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Engineering" aria-label="Quick preview the Engineering style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
-              <button type="button" class="preview-action-btn preview-word-btn" title="Download Engineering as Word" aria-label="Download the Engineering style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
-              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Engineering as PDF" aria-label="Download the Engineering style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Banner" aria-label="Quick preview the Banner style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Banner as Word" aria-label="Download the Banner style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Banner as PDF" aria-label="Download the Banner style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
             </div>
           </div>
 
-          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="infographic">
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="signal">
             <div class="preview-thumb" data-role="thumb"></div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Infographic</span>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Signal</span>
             <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Infographic" aria-label="Quick preview the Infographic style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
-              <button type="button" class="preview-action-btn preview-word-btn" title="Download Infographic as Word" aria-label="Download the Infographic style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
-              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Infographic as PDF" aria-label="Download the Infographic style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Signal" aria-label="Quick preview the Signal style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Signal as Word" aria-label="Download the Signal style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Signal as PDF" aria-label="Download the Signal style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
             </div>
           </div>
 
-          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="minimalist">
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="monogram">
             <div class="preview-thumb" data-role="thumb"></div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Minimalist</span>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Monogram</span>
             <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Minimalist" aria-label="Quick preview the Minimalist style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
-              <button type="button" class="preview-action-btn preview-word-btn" title="Download Minimalist as Word" aria-label="Download the Minimalist style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
-              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Minimalist as PDF" aria-label="Download the Minimalist style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Monogram" aria-label="Quick preview the Monogram style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Monogram as Word" aria-label="Download the Monogram style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Monogram as PDF" aria-label="Download the Monogram style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
             </div>
           </div>
 
-          <div class="preview-card flex flex-col items-center gap-2 shrink-0" data-theme-id="corporate">
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="brief">
             <div class="preview-thumb" data-role="thumb"></div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Corporate</span>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Brief</span>
             <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Corporate" aria-label="Quick preview the Corporate style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
-              <button type="button" class="preview-action-btn preview-word-btn" title="Download Corporate as Word" aria-label="Download the Corporate style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
-              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Corporate as PDF" aria-label="Download the Corporate style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Brief" aria-label="Quick preview the Brief style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Brief as Word" aria-label="Download the Brief style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Brief as PDF" aria-label="Download the Brief style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="ledger">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Ledger</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Ledger" aria-label="Quick preview the Ledger style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Ledger as Word" aria-label="Download the Ledger style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Ledger as PDF" aria-label="Download the Ledger style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="boulevard">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Boulevard</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Boulevard" aria-label="Quick preview the Boulevard style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Boulevard as Word" aria-label="Download the Boulevard style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Boulevard as PDF" aria-label="Download the Boulevard style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="ribbon">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Ribbon</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Ribbon" aria-label="Quick preview the Ribbon style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Ribbon as Word" aria-label="Download the Ribbon style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Ribbon as PDF" aria-label="Download the Ribbon style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="foundry">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Foundry</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Foundry" aria-label="Quick preview the Foundry style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Foundry as Word" aria-label="Download the Foundry style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Foundry as PDF" aria-label="Download the Foundry style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+
+          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="atelier">
+            <div class="preview-thumb" data-role="thumb"></div>
+            <span class="text-[10px] font-semibold text-[#1d1d1f]">Atelier</span>
+            <div class="flex items-center gap-2">
+              <button type="button" class="preview-action-btn preview-zoom-btn" title="Quick preview — Atelier" aria-label="Quick preview the Atelier style"><i data-lucide="search" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-word-btn" title="Download Atelier as Word" aria-label="Download the Atelier style as a Word document"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></button>
+              <button type="button" class="preview-action-btn preview-pdf-btn" title="Download Atelier as PDF" aria-label="Download the Atelier style as a PDF"><i data-lucide="download" class="w-3.5 h-3.5"></i></button>
             </div>
           </div>
 
