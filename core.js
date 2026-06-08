@@ -741,7 +741,16 @@ const UI = {
     this.els.previewCards.forEach((card) => {
       const theme = RESUME_THEMES.find((t) => t.id === card.dataset.themeId);
       if (!theme) return;
-      card.querySelector('.preview-zoom-btn').addEventListener('click', () => this.openPreviewModal(theme));
+      // Whole thumbnail is the preview trigger now (no separate zoom button) —
+      // div needs both a click and a keydown handler to behave like a button
+      // for keyboard/screen-reader users (role="button" tabindex="0" in the HTML).
+      const thumbWrap = card.querySelector('.preview-thumb-wrap');
+      thumbWrap.addEventListener('click', () => this.openPreviewModal(theme));
+      thumbWrap.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        this.openPreviewModal(theme);
+      });
       card.querySelector('.preview-word-btn').addEventListener('click', () => this.downloadThemedFile('docx', theme));
       card.querySelector('.preview-pdf-btn').addEventListener('click', () => this.downloadThemedFile('pdf', theme));
     });
