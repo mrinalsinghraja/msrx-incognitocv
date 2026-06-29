@@ -1,0 +1,49 @@
+# MSRX IncognitoCV
+
+> Free, anonymous AI resume optimizer. Paste your resume and a job description, get an ATS-ready rewrite in seconds. No account, no setup, no data stored — ever.
+
+## What IncognitoCV Does
+
+- Analyzes your resume against a target job description
+- Rewrites your CV with AI to match the role's keywords and requirements
+- Produces 10 styled resume previews (different typography and layouts)
+- Exports as Word (.docx) and PDF — both free
+- Runs in any browser; nothing is ever logged or stored server-side
+
+## Key Facts
+
+- Free: yes — all features, always
+- Login required: no
+- Data stored: no — nothing is ever saved or logged
+- Privacy: anonymous by design; no account, no tracking, no cookies
+- Supported exports: Word (.docx), PDF
+- Resume style previews: 10 themes
+- Made by: MSRX (Mrinal Singh Raja)
+- URL: https://cv.msrx.co.in
+- Parent portal: https://www.msrx.co.in
+
+## Frequently Asked Questions
+
+**Is IncognitoCV free?**
+Yes. All features including Word and PDF export are free, no payment or account needed.
+
+**Does IncognitoCV store my resume?**
+No. Nothing is ever saved or logged on MSRX servers.
+
+**How does the resume optimizer work?**
+Paste your resume and the job description. AI rewrites your resume to match the role's ATS keywords and hiring criteria.
+
+**What formats can I download?**
+Word (.docx) and PDF — both free, available for all 10 resume style themes.
+
+**Do I need to sign up?**
+No sign-up, no email, no account — open the URL and start immediately.
+
+## Related MSRX Tools
+
+- [MSRX Portal](https://www.msrx.co.in): full app directory
+- [JEE HyperLab](https://lab.msrx.co.in): IIT-JEE STEM simulation lab
+- [MSRX QR Studio](https://qr.msrx.co.in): AI QR code designer
+- [Easy-Peasy Gantt](https://gantt.msrx.co.in): AI-guided Gantt chart maker
+- [OrionPulseNet](https://pulsenet.msrx.co.in): AI network monitor
+- [MSRX Meeting](https://meeting.msrx.co.in): AI video meetings
