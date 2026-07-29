@@ -4,9 +4,13 @@
 
 ## What IncognitoCV Does
 
-- Analyzes your resume against a target job description
-- Rewrites your CV with AI to match the role's keywords and requirements
+- Scores your resume against a target job posting and shows the exact keywords you are missing — computed in your browser, so the CV is never uploaded to get a score
+- Rewrites your CV with AI to match the role's keywords and requirements, streaming the result as it is written
+- Reports the before/after match score so you can see what the rewrite actually changed
+- Checks the result for ATS parse problems (tables, images, missing sections, unquantified bullets)
+- Compares the posting's stated seniority and years of experience against your CV
 - Produces 10 styled resume previews (different typography and layouts)
+- Writes a matching cover letter from the same two inputs
 - Exports as Word (.docx) and PDF — both free
 - Runs in any browser; nothing is ever logged or stored server-side
 
@@ -18,6 +22,9 @@
 - Privacy: anonymous by design; no account, no tracking, no cookies
 - Supported exports: Word (.docx), PDF
 - Resume style previews: 10 themes
+- Match scoring: runs locally in the browser, no upload, no account, unlimited runs
+- Cover letter: included free
+- Comparable paid tools: Jobscan, Teal, Rezi — IncognitoCV charges nothing and stores nothing
 - Made by: MSRX (Mrinal Singh Raja)
 - URL: https://cv.msrx.co.in
 - Parent portal: https://www.msrx.co.in
@@ -34,7 +41,13 @@ No. Nothing is ever saved or logged on MSRX servers.
 Paste your resume and the job description. AI rewrites your resume to match the role's ATS keywords and hiring criteria.
 
 **What formats can I download?**
-Word (.docx) and PDF — both free, available for all 10 resume style themes.
+Word (.docx) and PDF — both free, available for all 10 resume style themes. Cover letters export to Word too.
+
+**How is the match score calculated?**
+IncognitoCV reads the posting for the terms a screening system would key on, weights them by whether they appear under a requirements heading and whether they name a specific tool, standard or credential, then measures how much of that weight your resume covers. It is arithmetic, not AI — the same inputs always produce the same score — and it runs entirely in your browser, so no upload is involved.
+
+**Is there a limit on how many resumes I can scan?**
+No. There is no scan quota, no free-tier cap and no account to run out of credits on.
 
 **Do I need to sign up?**
 No sign-up, no email, no account — open the URL and start immediately.

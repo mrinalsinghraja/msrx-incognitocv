@@ -1,4 +1,32 @@
 <!DOCTYPE html>
+<!--
+  MSRX IncognitoCV — "Daylight desk".
+  =============================================================================
+  Static page + one serverless function (api/optimize.js, holds GROQ_API_KEY).
+
+  Scripts, in load order and why:
+    match.js     pure, dependency-free scoring of a CV against a posting. Runs
+                 in this tab: no upload, no quota, no variance. This is the
+                 feature the paid tools in this category charge for.
+    core.js      the original engine — virtual file parsing, markdown -> blocks,
+                 DOCX/PDF builders, the ten resume themes. Unmodified.
+    app.js       the layer that overrides core.js's request/paint cycle for
+                 streaming, drives the fit report, and swaps alert() for toasts.
+
+  Dependencies deliberately NOT used: no Tailwind CDN (a ~400kB runtime JIT
+  before first paint), no icon library (~330kB for twelve glyphs). Kept: pdf.js,
+  mammoth, jsPDF, docx — all needed, all already on the CSP allowlist.
+
+  CSP is `script-src 'self' <cdn allowlist>` with no 'unsafe-inline'. An inline
+  onclick= attribute compiles to a NULL handler with no console error and no CSP
+  report under this policy — every listener here is addEventListener.
+
+  Fonts must be self-hosted: `font-src` inherits `default-src 'self'`, so a
+  Google Fonts request is blocked outright. fonts/archivo-var.woff2, 90kB, OFL.
+
+  Tests: npm test  (tests/match.test.js, tests/api.test.js — no framework, no
+  network, no API key needed).
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -7,12 +35,12 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
-  <meta name="theme-color" content="#8b5cf6">
+  <meta name="theme-color" content="#eef0f3">
   <title>MSRX IncognitoCV — Free, Anonymous Resume Optimizer</title>
-  <meta name="description" content="Paste your resume and a job description, get an ATS-ready rewrite in seconds. No account, no setup, completely free — nothing is ever saved or logged.">
+  <meta name="description" content="Score your resume against any job posting in your own browser, see the exact keywords you are missing, and get an ATS-ready rewrite in seconds. Free, unlimited, no account — nothing is ever saved or logged.">
   <link rel="canonical" href="https://cv.msrx.co.in/">
   <meta property="og:title" content="MSRX IncognitoCV — Free, Anonymous Resume Optimizer">
-  <meta property="og:description" content="Free, anonymous resume optimization. No login, no tracking, nothing ever stored.">
+  <meta property="og:description" content="Score your resume against any job posting, see the keywords you are missing, and get an ATS-ready rewrite. Free, unlimited, no account — nothing ever stored.">
   <meta property="og:url" content="https://cv.msrx.co.in/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://cv.msrx.co.in/og-image.jpg">
@@ -21,7 +49,7 @@
   <meta property="og:image:alt" content="MSRX — AI Resume Optimizer">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="MSRX IncognitoCV — Free, Anonymous Resume Optimizer">
-  <meta name="twitter:description" content="Free, anonymous resume optimization. No login, no tracking, nothing ever stored.">
+  <meta name="twitter:description" content="Score your resume against any job posting, see the keywords you are missing, and get an ATS-ready rewrite. Free, unlimited, no account — nothing ever stored.">
   <meta name="twitter:image" content="https://cv.msrx.co.in/og-image.jpg">
   <meta name="twitter:image:alt" content="MSRX IncognitoCV — Free, Anonymous Resume Optimizer">
   <meta name="twitter:creator" content="@mrinalsinghraja">
@@ -30,7 +58,11 @@
   <meta property="og:locale" content="en_US">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
   <meta name="author" content="MSRX">
-  <meta name="keywords" content="AI resume optimizer, ATS resume builder, free resume optimizer, anonymous resume tool, resume rewriter, job application optimizer, MSRX IncognitoCV, CV optimizer, resume tailoring, career tool, no login resume, free CV tool">
+  <meta name="keywords" content="ATS resume checker, resume match score, free resume scanner, keyword gap analysis, AI resume optimizer, ATS resume builder, free resume optimizer, anonymous resume tool, resume rewriter, job application optimizer, MSRX IncognitoCV, CV optimizer, resume tailoring, cover letter generator, no login resume, free CV tool">
+
+  <!-- Structured data. featureList and the FAQ entries track what the product
+       actually does — an app schema that undersells the tool is a wasted
+       signal to both search and the assistants that read this page. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -56,11 +88,16 @@
         "applicationCategory": "BusinessApplication",
         "operatingSystem": "Web",
         "url": "https://cv.msrx.co.in/",
-        "description": "Free, anonymous AI resume optimizer. Rewrites your CV for any job in seconds — ATS-ready, no login, nothing ever stored.",
+        "description": "Free, anonymous AI resume optimizer. Scores your CV against any job posting in your own browser, shows the exact keywords you are missing, rewrites it ATS-ready in seconds, and exports to Word or PDF. No login, no scan limit, nothing ever stored.",
         "featureList": [
-          "AI-powered resume rewriting",
+          "Resume-to-job match score computed locally in the browser",
+          "Missing keyword gap analysis",
+          "Before and after match comparison",
+          "ATS parse check (tables, images, sections, quantified bullets)",
+          "Seniority and years-of-experience comparison",
+          "AI-powered resume rewriting, streamed live",
           "ATS keyword optimization",
-          "Job description matching",
+          "Cover letter writing",
           "10 resume style previews",
           "Word (.docx) export",
           "PDF export",
@@ -107,6 +144,22 @@
           },
           {
             "@type": "Question",
+            "name": "How is the resume match score calculated?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "IncognitoCV reads the job posting for the terms a screening system would key on, weights them by whether they sit under a requirements heading and whether they name a specific tool, standard or credential, then measures how much of that weight your resume covers. It is arithmetic rather than AI, so the same inputs always give the same score, and it runs entirely in your browser — your resume is never uploaded to produce it."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is there a limit on how many resume scans I can run?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. There is no scan quota, no free-tier cap and no account to run out of credits on. Scoring happens locally, so it costs nothing to run."
+            }
+          },
+          {
+            "@type": "Question",
             "name": "Do I need to sign up to use IncognitoCV?",
             "acceptedAnswer": {
               "@type": "Answer",
@@ -118,428 +171,431 @@
     ]
   }
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+
+  <link rel="stylesheet" href="/styles.css">
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
-  <style>
-    :root { --msrx-gradient: linear-gradient(135deg, #00c4df 0%, #8b5cf6 100%); }
-    body { background-color: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    .card { background: #ffffff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 20px rgba(0,0,0,0.05); }
-    .msrx-mark { background: var(--msrx-gradient); }
-    .msrx-wordmark { background: var(--msrx-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .msrx-cta { background: var(--msrx-gradient); }
-    textarea::-webkit-scrollbar { width: 6px; }
-    textarea::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
-
-    /* Style gallery: a themed "page" rendering plus thumbnail/zoom scaffolding.
-       --rp-accent / --rp-faint / --rp-name-font / --rp-body-font / --rp-density
-       are set inline per-card by core.js from RESUME_THEMES (see FONT_STACKS /
-       DENSITY_SCALE). Default values below (sans/sans/1) reproduce the
-       original fixed look exactly — that's what keeps theme 0 byte-identical.
-       nameStyle/sectionStyle pick the modifier classes further down; 'rule'/
-       'underline' stay bare (no modifier) so they inherit the legacy rules
-       untouched rather than re-deriving an equivalent. */
-    .resume-preview-page {
-      width: 600px; padding: 42px 48px; background: #ffffff; color: #2a2a2d;
-      font-family: var(--rp-body-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
-      font-size: 11px; line-height: calc(1.6 * var(--rp-density, 1));
-    }
-    .resume-preview-page .rp-name {
-      margin: 0 0 calc(14px * var(--rp-density, 1)); padding-bottom: calc(14px * var(--rp-density, 1));
-      border-bottom: 2px solid var(--rp-accent); font-family: var(--rp-name-font, inherit);
-      text-align: center; font-size: 21px; font-weight: 700; letter-spacing: 0.01em; color: #1d1d1f;
-    }
-    /* nameStyle modifiers — combined-class selectors so specificity beats the
-       base .rp-name rule regardless of source order (see comment above). */
-    .resume-preview-page .rp-name.rp-name--band {
-      text-align: left; border-bottom: none; border-radius: 4px;
-      background: var(--rp-accent); color: #ffffff; padding: 12px 18px;
-    }
-    .resume-preview-page .rp-name.rp-name--monogram {
-      text-align: left; border-bottom: none; display: flex; align-items: center; gap: 10px;
-    }
-    .resume-preview-page .rp-name.rp-name--sideRule {
-      text-align: left; border-bottom: none; padding-bottom: 0;
-      border-left: 4px solid var(--rp-accent); padding-left: 14px;
-    }
-    .resume-preview-page .rp-monogram-badge {
-      display: inline-flex; align-items: center; justify-content: center; flex: none;
-      width: 28px; height: 28px; border-radius: 50%; background: var(--rp-accent);
-      color: #ffffff; font-size: 11px; font-weight: 700; font-family: var(--rp-body-font, inherit);
-    }
-    .resume-preview-page .rp-section {
-      margin: calc(18px * var(--rp-density, 1)) 0 calc(8px * var(--rp-density, 1));
-      padding-bottom: 5px; border-bottom: 1px solid var(--rp-faint);
-      font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--rp-accent);
-    }
-    .resume-preview-page .rp-section:first-child { margin-top: 0; }
-    /* sectionStyle modifiers */
-    .resume-preview-page .rp-section.rp-section--bracket {
-      border-bottom: none; letter-spacing: 0.04em;
-      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    }
-    .resume-preview-page .rp-section.rp-section--bracket::before { content: "[ "; }
-    .resume-preview-page .rp-section.rp-section--bracket::after { content: " ]"; }
-    .resume-preview-page .rp-section.rp-section--band {
-      display: inline-block; border-bottom: none; border-radius: 3px;
-      background: var(--rp-accent); color: #ffffff; padding: 3px 12px;
-    }
-    .resume-preview-page .rp-subhead {
-      margin: calc(10px * var(--rp-density, 1)) 0 calc(3px * var(--rp-density, 1));
-      font-size: 12px; font-weight: 700; color: var(--rp-accent);
-    }
-    .resume-preview-page .rp-paragraph { margin: 0 0 calc(7px * var(--rp-density, 1)); }
-    .resume-preview-page .rp-bullet { position: relative; margin: 0 0 calc(5px * var(--rp-density, 1)); padding-left: 15px; }
-    .resume-preview-page .rp-bullet .rp-dot { position: absolute; left: 0; color: var(--rp-accent); }
-
-    .preview-thumb {
-      position: relative; width: 120px; height: 160px; flex: none; overflow: hidden;
-      border-radius: 9px; border: 1px solid rgba(0,0,0,0.08); background: #ffffff;
-    }
-    .preview-thumb .resume-preview-page { transform: scale(0.2); transform-origin: top left; }
-
-    .preview-action-btn {
-      display: flex; align-items: center; justify-content: center; width: 26px; height: 26px;
-      border-radius: 8px; border: 1px solid rgba(0,0,0,0.06); background: #f5f5f7; color: #6e6e73;
-      transition: color 0.15s ease, background 0.15s ease;
-    }
-    .preview-action-btn:hover { background: #eef0f3; color: #1d1d1f; }
-
-    .preview-thumb-wrap { position: relative; cursor: pointer; border-radius: 9px; }
-    .preview-thumb-wrap:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
-    .preview-thumb-overlay {
-      position: absolute; inset: 0; border-radius: 9px; pointer-events: none;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-      background: rgba(29,29,31,0.55); color: #fff; font-size: 10px; font-weight: 600;
-      opacity: 0; transition: opacity 0.15s ease;
-    }
-    .preview-thumb-wrap:hover .preview-thumb-overlay,
-    .preview-thumb-wrap:focus-visible .preview-thumb-overlay { opacity: 1; }
-
-    .preview-action-btn.preview-file-btn { width: auto; padding: 0 7px; gap: 4px; }
-    .preview-file-badge {
-      display: inline-flex; align-items: center; justify-content: center;
-      height: 15px; min-width: 15px; padding: 0 3px; border-radius: 4px;
-      font-size: 8px; font-weight: 800; letter-spacing: -0.02em; color: #fff; line-height: 1;
-    }
-    .preview-file-badge--word { background: linear-gradient(135deg, #2f7fe8, #1851a3); }
-    .preview-file-badge--pdf { background: linear-gradient(135deg, #ff6b5e, #d32a2a); font-size: 7px; }
-  </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased selection:bg-[#8b5cf6]/15">
+<body>
 
-  <header class="bg-white/80 backdrop-blur-xl sticky top-0 z-50 border-b border-black/5 px-4 md:px-8 py-4 flex justify-between items-center">
-    <div class="flex items-start space-x-3">
-      <img src="/icon-192.png" alt="MSRX" class="h-9 w-9 rounded-xl shadow-sm" width="36" height="36">
-      <div>
-        <div class="flex items-center space-x-2">
-          <span class="text-base font-bold tracking-wide msrx-wordmark">MSRX</span>
-          <span class="bg-gray-100 text-[#6e6e73] text-[10px] px-2 py-0.5 rounded font-medium border border-gray-200 uppercase tracking-widest">IncognitoCV</span>
-        </div>
-        <p class="text-[13px] font-bold text-[#1d1d1f] tracking-tight mt-0.5">AI Resume Optimizer</p>
-        <p class="text-[11px] text-[#a1a1a6] mt-0.5">Free · Private · No login, ever</p>
-      </div>
+  <!-- ==== Masthead ========================================================
+       The only glass surface in the interface. The MSRX gradient is confined
+       to the mark and wordmark — the publisher's colophon — so the product's
+       own palette (graphite + one lamp) stays uncontested. -->
+  <header class="masthead">
+    <div class="colophon">
+      <img src="/icon-192.png" alt="" class="colophon-mark" width="32" height="32">
+      <span class="colophon-name">MSRX</span>
+      <span class="colophon-sep">/</span>
+      <span class="colophon-product">IncognitoCV</span>
+      <!-- The product descriptor has to live here, not only in the hero: the
+           hero is hidden once a rewrite exists, and the masthead is the only
+           thing on screen in both states. -->
+      <span class="colophon-desc">AI Resume Optimizer</span>
     </div>
-    <div class="hidden sm:flex items-center space-x-2 text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1.5 rounded-full font-medium">
-      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-      <span>Nothing stored, ever</span>
+    <div class="masthead-spacer"></div>
+    <div class="pledge">
+      <span class="pledge-dot" aria-hidden="true"></span>
+      <span>Nothing is stored</span>
     </div>
   </header>
 
-  <div class="border-b border-black/5 bg-white/50">
-    <div class="max-w-7xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] text-[#6e6e73] font-medium">
-      <span class="flex items-center gap-1.5"><i data-lucide="eye-off" class="w-3.5 h-3.5 text-[#00c4df]"></i> Nothing saved or logged</span>
-      <span class="flex items-center gap-1.5"><i data-lucide="user-x" class="w-3.5 h-3.5 text-[#00c4df]"></i> No login or identity needed</span>
-      <span class="flex items-center gap-1.5"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-[#8b5cf6]"></i> No setup, no API keys</span>
-      <span class="flex items-center gap-1.5"><i data-lucide="gift" class="w-3.5 h-3.5 text-[#8b5cf6]"></i> Completely free — every feature unlocked</span>
-      <span class="flex items-center gap-1.5"><i data-lucide="brain-circuit" class="w-3.5 h-3.5 text-[#8b5cf6]"></i> Real AI rewriting — not a template</span>
-    </div>
-  </div>
+  <div class="shell">
 
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-    <section class="lg:col-span-5 flex flex-col space-y-5">
-
-      <div class="card rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="flex items-start gap-2.5">
-          <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">1</span>
-          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Drop in your <span class="text-[#1d1d1f] font-semibold">resume</span> — PDF or text</p>
-        </div>
-        <div class="flex items-start gap-2.5">
-          <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">2</span>
-          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Paste the <span class="text-[#1d1d1f] font-semibold">job post</span> you're targeting</p>
-        </div>
-        <div class="flex items-start gap-2.5">
-          <span class="msrx-mark shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold">3</span>
-          <p class="text-[11px] text-[#6e6e73] leading-relaxed">Hit <span class="text-[#1d1d1f] font-semibold">optimize</span> — get your rewrite in seconds</p>
-        </div>
+    <!-- ==== Rail (state B only) ==========================================
+         Once a page exists, the two inputs stop being the task and become a
+         receipt of what went in. One control reopens them. -->
+    <aside class="rail" aria-label="What you put in">
+      <div class="rail-group">
+        <div class="t-label rail-label">Your CV</div>
+        <span class="rail-value" id="railResume">—</span>
       </div>
+      <div class="rail-group">
+        <div class="t-label rail-label">The job</div>
+        <span class="rail-value" id="railJob">—</span>
+      </div>
+      <div class="rail-group">
+        <div class="t-label rail-label">Written by</div>
+        <span class="rail-value" id="railModel">—</span>
+      </div>
+      <div class="rail-actions">
+        <button type="button" class="btn-quiet" id="editInputsBtn">Change what you put in</button>
+        <!-- Proxies to the one real #clearAllBtn that core.js binds. "Clear
+             everything" has to be reachable in BOTH states — it is always
+             visible on the current site, and burying it here alone would have
+             made it unreachable before a rewrite exists. -->
+        <button type="button" class="btn-quiet is-danger" id="railClearBtn">Clear everything</button>
+      </div>
+    </aside>
 
-      <div class="card rounded-2xl p-5 space-y-3">
-        <div class="flex items-center space-x-2.5">
-          <i data-lucide="brain-circuit" class="text-[#8b5cf6] w-4 h-4"></i>
-          <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Settings</h2>
-        </div>
-        <div class="grid grid-cols-2 gap-3 items-end">
-          <div>
-            <label class="block text-[10px] uppercase tracking-widest text-[#a1a1a6] font-semibold mb-1.5">AI Model</label>
-            <select id="modelSelect" class="w-full bg-[#f5f5f7] border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-[#1d1d1f] focus:outline-none focus:border-[#8b5cf6] transition-all">
+    <div class="column">
+
+      <!-- ==== Hero ======================================================
+           One claim, one qualifier. The product's real promise is not
+           "land your dream job" — it is that a tailored rewrite takes ten
+           seconds and leaves no trace. Say that. -->
+      <section class="hero">
+        <p class="t-label hero-eyebrow">Free · No account · Nothing kept</p>
+        <h1 class="t-display hero-title">Rewrite your resume for <em>one</em> job.</h1>
+        <p class="t-lede hero-lede">
+          An ATS-ready rewrite in about ten seconds, in ten typeset styles.
+          Close the tab and none of it exists.
+        </p>
+      </section>
+
+      <!-- Three steps. Numbered because this genuinely is a sequence — the
+           order is the instruction, not decoration. -->
+      <ol class="steps">
+        <li class="step"><span class="step-n">1</span>Drop in your CV — PDF, Word or plain text</li>
+        <li class="step"><span class="step-n">2</span>Paste the job posting you're going for</li>
+        <li class="step"><span class="step-n">3</span>Rewrite — ten styles, Word or PDF</li>
+      </ol>
+
+      <!-- ==== Composer ==================================================
+           Paper = your words. These are the only lit surfaces before a
+           rewrite exists, so there is never a question about where to start. -->
+      <div class="composer">
+
+        <section class="sheet" aria-labelledby="lblResume">
+          <div class="sheet-head">
+            <span class="t-label" id="lblResume">Your CV</span>
+            <span class="sheet-head-spacer"></span>
+            <label class="file-pick">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 11V3m0 0L5 6m3-3l3 3M2.5 11v1.5A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Add a file</span>
+              <input type="file" id="resumeUploader" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            </label>
+          </div>
+          <div class="dropzone" id="resumeDropzone">
+            <textarea id="resumeInput" rows="7" placeholder="Paste your resume — or drop a PDF or Word file here"></textarea>
+            <div class="drop-hint hidden" id="resumeDropHint">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 10V3m0 0L5 6m3-3l3 3M2.5 10v2A1.5 1.5 0 0 0 4 13.5h8a1.5 1.5 0 0 0 1.5-1.5v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Drop it anywhere in this box
+            </div>
+          </div>
+          <!-- Kept from the current site: this is a privacy proof point, not
+               filler. pdf.js and Mammoth parse the file in the browser; the
+               file itself never leaves the machine. -->
+          <p class="sheet-note">PDF or Word (.docx) — parsed right here in your browser, never uploaded.</p>
+        </section>
+
+        <section class="sheet" aria-labelledby="lblJob">
+          <div class="sheet-head">
+            <span class="t-label" id="lblJob">The job you want</span>
+            <span class="sheet-head-spacer"></span>
+            <label class="file-pick">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 11V3m0 0L5 6m3-3l3 3M2.5 11v1.5A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Add a file</span>
+              <input type="file" id="jobUploader" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+            </label>
+          </div>
+          <div class="dropzone" id="jobDropzone">
+            <textarea id="jobInput" rows="7" placeholder="Paste the job posting — or drop a PDF or Word file here"></textarea>
+            <div class="drop-hint hidden" id="jobDropHint">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 10V3m0 0L5 6m3-3l3 3M2.5 10v2A1.5 1.5 0 0 0 4 13.5h8a1.5 1.5 0 0 0 1.5-1.5v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Drop it anywhere in this box
+            </div>
+          </div>
+        </section>
+
+        <!-- The model picker is a line of text, not a panel. It matters to
+             almost nobody on a first run, so it gets the weight it deserves. -->
+        <div class="action-row">
+          <!-- No sparkle icon. The label already says what happens, and an AI
+               twinkle on the primary action is the one cliché this palette is
+               trying not to be. -->
+          <button type="button" class="btn-primary" id="optimizeBtn">Rewrite my resume</button>
+          <p class="action-hint" id="actionHint"></p>
+          <div class="settings-line">
+            <label for="modelSelect">Written by</label>
+            <select id="modelSelect">
               <option value="llama-3.3-70b-versatile">Llama 3.3 70B — best quality</option>
               <option value="llama-3.1-8b-instant">Llama 3.1 8B — fastest</option>
             </select>
+            <span class="settings-sep" aria-hidden="true">·</span>
+            <button type="button" class="btn-quiet is-danger" id="clearAllBtn">Clear everything</button>
           </div>
-          <button id="clearAllBtn" class="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 rounded-xl px-3 py-2.5 text-[11px] font-medium transition-all">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            <span>Clear everything</span>
+        </div>
+      </div>
+
+      <!-- ==== Assurances (state A only) ==================================
+           Plain claims, no icon per line. Five icons in a row is decoration;
+           five short sentences is information. -->
+      <div class="assurances">
+        <ul>
+          <li>Nothing saved or logged</li>
+          <li>No login or identity</li>
+          <li>No setup, no API keys</li>
+          <li>Every feature free</li>
+          <li>Real AI rewriting, not a template</li>
+        </ul>
+      </div>
+
+      <!-- ==== Stage (state B only) — THE SIGNATURE ======================
+           The finished resume, typeset at full size, lit by the one warm
+           light in the interface. The strip below is a selector: clicking a
+           style re-typesets THIS page in place. The current site does the
+           opposite — raw Markdown in the big panel, the typeset version
+           hidden inside 120px thumbnails. -->
+      <!-- ==== Fit report ================================================
+           The thing the paid tools charge for. Jobscan, Teal and Rezi all
+           require an upload to score your CV against a posting; this is the
+           same analysis running in match.js, in this tab, with no network
+           call — which is why it can be free, instant, and honest about the
+           privacy claim on the rest of the page.
+
+           It appears as soon as both inputs have content, BEFORE you spend a
+           rewrite: knowing you are at 41% and what the gaps are is useful on
+           its own. After a rewrite it carries the before/after delta. -->
+      <section class="report" id="reportPanel" hidden aria-live="polite">
+        <div class="report-head">
+          <div>
+            <div class="t-label">Match against this posting</div>
+            <p class="report-sub" id="reportSub"></p>
+          </div>
+          <button type="button" class="btn-quiet" id="reportRefresh" hidden>Re-check</button>
+        </div>
+
+        <div class="report-body">
+          <div class="gauge" id="matchGauge">
+            <div class="gauge-ring" id="gaugeRing">
+              <div class="gauge-face">
+                <span class="gauge-score" id="gaugeScore">0</span>
+                <span class="gauge-unit">%</span>
+              </div>
+            </div>
+            <p class="gauge-delta" id="gaugeDelta"></p>
+            <p class="gauge-caption" id="gaugeCaption"></p>
+          </div>
+
+          <div class="report-cols">
+            <div class="report-col">
+              <div class="t-label">Still missing <span class="report-count" id="gapCount"></span></div>
+              <ul class="chips" id="gapList"></ul>
+              <p class="report-hint" id="gapHint"></p>
+            </div>
+            <div class="report-col" id="gainCol" hidden>
+              <div class="t-label">Added by the rewrite <span class="report-count" id="gainCount"></span></div>
+              <ul class="chips chips-good" id="gainList"></ul>
+            </div>
+            <div class="report-col" id="atsCol" hidden>
+              <div class="t-label">Parse check</div>
+              <ul class="findings" id="atsList"></ul>
+            </div>
+          </div>
+        </div>
+
+        <p class="report-note">
+          Scored in this browser. Your CV and the posting are not sent anywhere to produce this —
+          the only thing that ever leaves your machine is the rewrite request itself.
+        </p>
+      </section>
+
+      <!-- Always on screen, exactly like the current site: the style gallery,
+           the exports and the output all exist from first paint. Only their
+           CONTENT waits for a rewrite. Hiding the whole section until then made
+           the tool look like it had fewer features than it has. -->
+      <section class="stage" aria-label="Your rewritten resume">
+        <!-- Strip and exports sit ABOVE the page deliberately: pick a style,
+             then look at the result. Putting the controls under a 780px-tall
+             sheet meant nobody scrolled far enough to discover them. -->
+        <div class="t-label strip-label">Choose your style</div>
+        <p class="strip-note">Same rewritten content, ten looks. Pick one to see it full size below, then take it as Word or PDF — or hover any card to grab that style directly.</p>
+        <div class="strip" id="styleStrip" role="radiogroup" aria-label="Resume style">
+          <div class="preview-card" data-theme-id="clean">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="true" tabindex="0" aria-label="Clean style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Clean as Word" aria-label="Download the Clean style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Clean as PDF" aria-label="Download the Clean style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Clean</span>
+          </div>
+          <div class="preview-card" data-theme-id="banner">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Banner style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Banner as Word" aria-label="Download the Banner style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Banner as PDF" aria-label="Download the Banner style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Banner</span>
+          </div>
+          <div class="preview-card" data-theme-id="signal">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Signal style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Signal as Word" aria-label="Download the Signal style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Signal as PDF" aria-label="Download the Signal style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Signal</span>
+          </div>
+          <div class="preview-card" data-theme-id="monogram">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Monogram style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Monogram as Word" aria-label="Download the Monogram style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Monogram as PDF" aria-label="Download the Monogram style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Monogram</span>
+          </div>
+          <div class="preview-card" data-theme-id="brief">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Brief style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Brief as Word" aria-label="Download the Brief style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Brief as PDF" aria-label="Download the Brief style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Brief</span>
+          </div>
+          <div class="preview-card" data-theme-id="ledger">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Ledger style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Ledger as Word" aria-label="Download the Ledger style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Ledger as PDF" aria-label="Download the Ledger style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Ledger</span>
+          </div>
+          <div class="preview-card" data-theme-id="boulevard">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Boulevard style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Boulevard as Word" aria-label="Download the Boulevard style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Boulevard as PDF" aria-label="Download the Boulevard style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Boulevard</span>
+          </div>
+          <div class="preview-card" data-theme-id="ribbon">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Ribbon style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Ribbon as Word" aria-label="Download the Ribbon style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Ribbon as PDF" aria-label="Download the Ribbon style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Ribbon</span>
+          </div>
+          <div class="preview-card" data-theme-id="foundry">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Foundry style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Foundry as Word" aria-label="Download the Foundry style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Foundry as PDF" aria-label="Download the Foundry style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Foundry</span>
+          </div>
+          <div class="preview-card" data-theme-id="atelier">
+            <div class="preview-thumb-wrap" role="radio" aria-checked="false" tabindex="0" aria-label="Atelier style">
+              <div class="preview-thumb" data-role="thumb"></div>
+            </div>
+            <div class="thumb-actions">
+              <button type="button" class="thumb-btn preview-word-btn" title="Download Atelier as Word" aria-label="Download the Atelier style as a Word document"><span class="fmt fmt-word">W</span></button>
+              <button type="button" class="thumb-btn preview-pdf-btn" title="Download Atelier as PDF" aria-label="Download the Atelier style as a PDF"><span class="fmt fmt-pdf">PDF</span></button>
+            </div>
+            <span class="strip-name">Atelier</span>
+          </div>
+        </div>
+
+
+        <div class="t-label stage-title">Your rewritten resume</div>
+        <p class="stream-flag"><span class="stream-dot" aria-hidden="true"></span>Writing — the page updates as it arrives</p>
+        <!-- One export row, acting on whichever style is showing. Ten cards
+             with their own Word and PDF buttons was thirty controls for one
+             decision. -->
+        <div class="exports">
+          <button type="button" class="btn-export" id="downloadWordBtn">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2v8m0 0L4.5 6.5M8 10l3.5-3.5M2.5 13h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Word
           </button>
+          <button type="button" class="btn-export" id="downloadPdfBtn">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2v8m0 0L4.5 6.5M8 10l3.5-3.5M2.5 13h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            PDF
+          </button>
+          <button type="button" class="btn-export" id="copyOutputBtn">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 5.5v-2A1.5 1.5 0 0 0 9 2H4a1.5 1.5 0 0 0-1.5 1.5v5A1.5 1.5 0 0 0 4 10h1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Copy Markdown
+          </button>
+          <span class="exports-spacer"></span>
+          <!-- The second artefact every application needs, from inputs the
+               user has already given. Same endpoint, different prompt. -->
+          <button type="button" class="btn-export btn-export--alt" id="coverLetterBtn">Write a cover letter</button>
         </div>
-      </div>
 
-      <div id="resumeCard" class="card rounded-2xl p-5 space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2.5">
-            <i data-lucide="file-text" class="text-[#8b5cf6] w-4 h-4"></i>
-            <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Your Resume</h2>
+        <details class="cover" id="coverPanel" hidden>
+          <summary>Cover letter</summary>
+          <textarea id="coverArea" readonly placeholder="Writing…"></textarea>
+          <div class="cover-actions">
+            <button type="button" class="btn-export" id="coverCopyBtn">Copy</button>
+            <button type="button" class="btn-export" id="coverWordBtn">Word</button>
+            <button type="button" class="btn-export" id="coverRegenBtn">Rewrite it</button>
           </div>
-          <label class="flex items-center gap-1.5 text-[11px] text-[#00c4df] hover:underline cursor-pointer font-medium">
-            <i data-lucide="upload" class="w-3 h-3"></i>
-            <span>Browse file</span>
-            <input type="file" id="resumeUploader" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden">
-          </label>
-        </div>
-        <div id="resumeDropzone" class="relative rounded-xl border-2 border-dashed border-gray-200 transition-colors">
-          <textarea id="resumeInput" rows="7" placeholder="Paste your resume text — or drag a PDF / Word file in here" class="relative z-10 w-full bg-[#f5f5f7] border-0 rounded-[10px] px-4 py-3 text-xs font-mono text-[#1d1d1f] leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/15 transition-all resize-none"></textarea>
-          <div id="resumeDropHint" class="hidden absolute inset-0 z-20 rounded-xl bg-[#00c4df]/5 border-2 border-[#00c4df] flex items-center justify-center pointer-events-none">
-            <span class="flex items-center gap-2 text-xs font-medium text-[#00c4df]">
-              <i data-lucide="upload-cloud" class="w-4 h-4"></i> Drop your file here
-            </span>
-          </div>
-        </div>
-        <p class="text-[10px] text-[#a1a1a6]">PDF or Word (.docx) — parsed right in your browser, nothing uploaded.</p>
-      </div>
-
-      <div class="card rounded-2xl p-5 space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2.5">
-            <i data-lucide="target" class="text-[#8b5cf6] w-4 h-4"></i>
-            <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Target Job Description</h2>
-          </div>
-          <label class="flex items-center gap-1.5 text-[11px] text-[#00c4df] hover:underline cursor-pointer font-medium">
-            <i data-lucide="upload" class="w-3 h-3"></i>
-            <span>Browse file</span>
-            <input type="file" id="jobUploader" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden">
-          </label>
-        </div>
-        <div id="jobDropzone" class="relative rounded-xl border-2 border-dashed border-gray-200 transition-colors">
-          <textarea id="jobInput" rows="5" placeholder="Paste the job posting — or drag a PDF / Word file in here" class="relative z-10 w-full bg-[#f5f5f7] border-0 rounded-[10px] px-4 py-3 text-xs font-mono text-[#1d1d1f] leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/15 transition-all resize-none"></textarea>
-          <div id="jobDropHint" class="hidden absolute inset-0 z-20 rounded-xl bg-[#00c4df]/5 border-2 border-[#00c4df] flex items-center justify-center pointer-events-none">
-            <span class="flex items-center gap-2 text-xs font-medium text-[#00c4df]">
-              <i data-lucide="upload-cloud" class="w-4 h-4"></i> Drop your file here
-            </span>
+        </details>
+        <div class="stage-lamp">
+          <div class="stage-page" id="stagePage"></div>
+          <!-- A blank sheet under the lamp before there is anything to light.
+               Same width as the real page, so the layout does not jump. -->
+          <div class="stage-placeholder">
+            <p>Your rewritten resume appears here</p>
+            <p class="stage-placeholder-sub">Typeset full size, in whichever of the ten styles you pick.</p>
           </div>
         </div>
-      </div>
 
-      <button id="optimizeBtn" class="msrx-cta flex items-center justify-center gap-2.5 text-white font-semibold text-sm rounded-2xl px-6 py-4 shadow-lg shadow-[#8b5cf6]/20 hover:shadow-xl hover:shadow-[#8b5cf6]/25 transition-all">
-        <i data-lucide="sparkles" class="w-4 h-4"></i>
-        <span>Optimize My Resume</span>
-      </button>
-    </section>
+        <!-- Raw Markdown: an escape hatch, behind a disclosure. core.js reads
+             and writes #outputArea.value, so it must stay in the DOM. -->
+        <details class="raw">
+          <summary>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            View the raw Markdown
+          </summary>
+          <textarea id="outputArea" readonly placeholder="Your rewritten resume will appear here as clean Markdown."></textarea>
+        </details>
+      </section>
 
-    <section class="lg:col-span-7 flex flex-col space-y-5">
-      <div class="card rounded-2xl flex-1 flex flex-col overflow-hidden relative min-h-[480px]">
-        <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-3.5 border-b border-black/5">
-          <div class="flex items-center space-x-2.5 min-w-0">
-            <i data-lucide="sparkles" class="text-[#8b5cf6] w-4 h-4 shrink-0"></i>
-            <span class="text-xs font-semibold text-[#1d1d1f] whitespace-nowrap">Your Optimized Resume</span>
-            <span class="msrx-cta text-white text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"><i data-lucide="brain-circuit" class="w-2.5 h-2.5"></i>AI</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <button id="downloadWordBtn" class="flex items-center gap-1.5 text-[11px] text-[#00c4df] hover:underline font-medium py-2 -my-2">
-              <i data-lucide="download" class="w-3 h-3"></i>
-              <span>Word</span>
-            </button>
-            <button id="downloadPdfBtn" class="flex items-center gap-1.5 text-[11px] text-[#00c4df] hover:underline font-medium py-2 -my-2">
-              <i data-lucide="download" class="w-3 h-3"></i>
-              <span>PDF</span>
-            </button>
-            <button id="copyOutputBtn" class="flex items-center gap-1.5 text-[11px] text-[#00c4df] hover:underline font-medium py-2 -my-2">
-              <i data-lucide="copy" class="w-3 h-3"></i>
-              <span>Copy</span>
-            </button>
-          </div>
-        </div>
-        <textarea id="outputArea" readonly placeholder="Your rewritten, ATS-ready resume will appear here — clean Markdown, ready to paste anywhere." class="flex-1 w-full bg-transparent px-5 py-4 text-xs font-mono text-[#1d1d1f] leading-relaxed focus:outline-none resize-none placeholder:text-[#a1a1a6]"></textarea>
-
-        <div id="loadingOverlay" class="hidden absolute inset-0 bg-white/85 backdrop-blur-sm flex flex-col items-center justify-center space-y-4">
-          <div class="w-9 h-9 border-2 border-[#8b5cf6]/15 border-t-[#8b5cf6] rounded-full animate-spin"></div>
-          <p class="text-xs font-medium text-[#6e6e73]">AI is rewriting your resume...</p>
-        </div>
-      </div>
-
-      <div class="card rounded-2xl p-5 space-y-3">
-        <div class="flex items-center space-x-2.5">
-          <i data-lucide="palette" class="text-[#8b5cf6] w-4 h-4"></i>
-          <h2 class="text-xs uppercase tracking-wider font-semibold text-[#1d1d1f]">Choose Your Style</h2>
-        </div>
-        <p class="text-[10px] text-[#a1a1a6]">Same optimized content, 10 looks. Tap any preview to see it full-size, then grab your favorite as Word or PDF.</p>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="clean">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Clean style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Clean</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Clean as Word" aria-label="Download the Clean style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Clean as PDF" aria-label="Download the Clean style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="banner">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Banner style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Banner</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Banner as Word" aria-label="Download the Banner style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Banner as PDF" aria-label="Download the Banner style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="signal">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Signal style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Signal</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Signal as Word" aria-label="Download the Signal style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Signal as PDF" aria-label="Download the Signal style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="monogram">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Monogram style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Monogram</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Monogram as Word" aria-label="Download the Monogram style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Monogram as PDF" aria-label="Download the Monogram style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="brief">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Brief style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Brief</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Brief as Word" aria-label="Download the Brief style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Brief as PDF" aria-label="Download the Brief style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="ledger">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Ledger style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Ledger</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Ledger as Word" aria-label="Download the Ledger style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Ledger as PDF" aria-label="Download the Ledger style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="boulevard">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Boulevard style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Boulevard</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Boulevard as Word" aria-label="Download the Boulevard style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Boulevard as PDF" aria-label="Download the Boulevard style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="ribbon">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Ribbon style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Ribbon</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Ribbon as Word" aria-label="Download the Ribbon style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Ribbon as PDF" aria-label="Download the Ribbon style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="foundry">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Foundry style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Foundry</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Foundry as Word" aria-label="Download the Foundry style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Foundry as PDF" aria-label="Download the Foundry style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-          <div class="preview-card flex flex-col items-center gap-2" data-theme-id="atelier">
-            <div class="preview-thumb-wrap" data-role="thumb-wrap" role="button" tabindex="0" aria-label="Preview the Atelier style full-size">
-              <div class="preview-thumb" data-role="thumb"></div>
-              <div class="preview-thumb-overlay" aria-hidden="true"><i data-lucide="search" class="w-4 h-4"></i><span>Preview</span></div>
-            </div>
-            <span class="text-[10px] font-semibold text-[#1d1d1f]">Atelier</span>
-            <div class="flex items-center gap-2">
-              <button type="button" class="preview-action-btn preview-file-btn preview-word-btn" title="Download Atelier as Word" aria-label="Download the Atelier style as a Word document"><span class="preview-file-badge preview-file-badge--word">W</span><i data-lucide="download" class="w-3 h-3"></i></button>
-              <button type="button" class="preview-action-btn preview-file-btn preview-pdf-btn" title="Download Atelier as PDF" aria-label="Download the Atelier style as a PDF"><span class="preview-file-badge preview-file-badge--pdf">PDF</span><i data-lucide="download" class="w-3 h-3"></i></button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <div id="previewModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8">
-    <div id="previewModalBackdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full flex flex-col overflow-hidden">
-      <div class="flex items-center justify-between px-5 py-3.5 border-b border-black/5 shrink-0">
-        <div class="flex items-center gap-2.5">
-          <i data-lucide="search" class="text-[#8b5cf6] w-4 h-4"></i>
-          <span id="previewModalLabel" class="text-xs font-semibold text-[#1d1d1f]">Quick preview</span>
-        </div>
-        <button id="previewModalCloseBtn" type="button" class="text-[#6e6e73] hover:text-[#1d1d1f] transition-colors p-2 -m-2" aria-label="Close preview">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-      <div class="overflow-auto p-6 sm:p-8 flex justify-center bg-[#f5f5f7]">
-        <div id="previewModalPage"></div>
-      </div>
     </div>
   </div>
 
-  <footer class="border-t border-black/5 px-4 md:px-8 py-5 flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#a1a1a6] gap-3">
-    <a href="https://msrx.co.in" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 msrx-cta text-white text-[11px] font-semibold px-3 py-1.5 rounded-full hover:opacity-90 transition-opacity shrink-0">
-      <i data-lucide="arrow-left" class="w-3 h-3"></i>
-      MSRX Portal
-    </a>
+  <!-- ==== Working overlay ================================================ -->
+  <div class="working hidden" id="loadingOverlay" role="status" aria-live="polite">
+    <div class="working-lamp" aria-hidden="true"></div>
+    <p class="t-meta">Reading the posting and rewriting your resume against it…</p>
+  </div>
+
+  <!-- ==== Toast stack ==================================================== -->
+  <div class="toast-stack" id="toastStack" role="status" aria-live="polite"></div>
+
+  <!-- ==== Modal stubs ====================================================
+       core.js caches these five nodes unconditionally in initializeInterface()
+       and would throw on a null. The redesign replaces the zoom modal with the
+       stage, so they stay here, inert and display:none. Keeping them is what
+       lets this redesign ship without touching core.js. -->
+  <div id="previewModal" aria-hidden="true">
+    <div id="previewModalBackdrop"></div>
+    <span id="previewModalLabel"></span>
+    <div id="previewModalPage"></div>
+    <button type="button" id="previewModalCloseBtn"></button>
+  </div>
+
+  <footer class="footer">
+    <a href="https://msrx.co.in" target="_blank" rel="noopener noreferrer">← MSRX Portal</a>
     <span>Nothing is ever saved or logged. No accounts, no tracking.</span>
-    <span>Built by <span class="msrx-wordmark font-semibold">MSRX</span></span>
+    <span>Built by <span class="colophon-name">MSRX</span></span>
   </footer>
 
-  <script src="core.js"></script>
+  <!-- match.js is pure, dependency-free and runs before core.js so the fit
+       report is available the moment both inputs have text. -->
+  <script src="/match.js"></script>
+  <script src="/core.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

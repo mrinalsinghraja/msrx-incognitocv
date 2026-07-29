@@ -1,0 +1,14 @@
+{
+  "name": "msrx-incognitocv",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Free, anonymous AI resume optimizer. Nothing is ever saved or logged.",
+  "scripts": {
+    "test": "node tests/match.test.js && node tests/api.test.js",
+    "serve": "python3 -m http.server 3056"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
