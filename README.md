@@ -2,6 +2,10 @@
 
 **[cv.msrx.co.in](https://cv.msrx.co.in)** — score your CV against a job posting without uploading it anywhere. Free, no account.
 
+![A CV scored against a job posting: 39%, with the twelve missing terms listed](docs/demo.gif)
+
+*The score recomputes on every keystroke, in the page. Nothing is sent anywhere to produce it.*
+
 ![MSRX IncognitoCV — paste a CV and a job posting, rewrite for that one job](docs/screenshot.png)
 
 ## The wedge
