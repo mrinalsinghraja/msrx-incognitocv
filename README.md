@@ -2,6 +2,8 @@
 
 **[cv.msrx.co.in](https://cv.msrx.co.in)** — score your CV against a job posting without uploading it anywhere. Free, no account.
 
+![MSRX IncognitoCV — paste a CV and a job posting, rewrite for that one job](docs/screenshot.png)
+
 ## The wedge
 
 Jobscan, Teal and Rezi all do the same thing: you upload your resume to their servers, they return a match score, and you pay for the privilege. Your CV is the most identity-dense document you own — full name, address, phone, employment history — and handing it to a third party to get a percentage back is a poor trade.
