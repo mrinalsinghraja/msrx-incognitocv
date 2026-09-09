@@ -86,7 +86,28 @@ const MatchEngine = (() => {
     phraseBonus: 1.25,         // multi-word terms are more specific than single
   };
 
+
+  // Verbs that open a responsibility bullet. The requirement is the noun phrase
+  // that follows: a posting saying "drive contract compliance" is asking for
+  // contract compliance, and a CV that says "contract compliance" HAS it. Left
+  // in, the verb both manufactures gaps nobody can close ("build dashboards")
+  // and hides real matches behind a word no CV repeats verbatim.
+  // Stored as stems, because that is what they are compared against: stem()
+  // takes "drive" to "driv" and "coordinating" to "coordinat", so a set of
+  // dictionary spellings would silently never match. `stem` is a hoisted
+  // function declaration, so calling it here at module init is fine.
+  const RESPONSIBILITY_VERBS = new Set(`
+    own drive lead build run manage handle oversee coordinate execute deliver develop create
+    design define establish implement maintain monitor track report analyse analyze review
+    prepare produce conduct perform partner collaborate grow scale champion spearhead
+    contribute participate assist facilitate enable optimise optimize improve hiring seeking
+  `.trim().split(/\s+/).map(stem));
+
+  // Company legal forms. The most reliable marker of a company name in prose.
+  const COMPANY_SUFFIX = /(?:co|corp|corporation|inc|ltd|limited|llc|llp|plc|gmbh|pvt|private|ag|sa|bv|nv|group|holdings|technologies|technology|solutions|systems|labs|partners|ventures|industries)/;
+
   const MAX_KEYWORDS = 40;
+
 
   /* --- Text utilities ---------------------------------------------------- */
 
@@ -128,11 +149,34 @@ const MatchEngine = (() => {
       .filter(Boolean);
   }
 
+  /**
+   * Splits a line at clause boundaries before n-grams are taken from it.
+   *
+   * normalize() turns punctuation into spaces, so "supplier onboarding,
+   * contract compliance and cost recovery" was one flat token run and the
+   * windows crossed the comma: "supplier onboarding contract" and "onboarding
+   * contract compliance" both became requirements, though neither is a phrase
+   * anyone wrote or will ever match verbatim.
+   *
+   * Splits on commas, semicolons, colons, bullets, pipes, spaced dashes and
+   * sentence-ending periods — never on a bare period or slash, which would
+   * take "node.js" and "ci/cd" apart.
+   */
+  function clauses(line) {
+    return String(line || '')
+      .split(/[,;:•|]|\s+[-–—]\s+|\.(?=\s|$)/)
+      .map((c) => c.trim())
+      .filter(Boolean);
+  }
+
   function isNoiseToken(token) {
     if (!token) return true;
     if (STOPWORDS.has(token)) return true;
     if (token.length < 2) return true;
     if (/^[0-9.+#\-/&]+$/.test(token)) return true;   // bare numbers and symbols
+    // A company's legal form, stranded by the employer filter above. "co" and
+    // "ltd" are grammar in a company name, never something a CV lacks.
+    if (new RegExp(`^${COMPANY_SUFFIX.source}$`).test(token)) return true;
     return false;
   }
 
@@ -172,6 +216,82 @@ const MatchEngine = (() => {
     return { lines, marks };
   }
 
+  /* --- The hiring company itself ----------------------------------------- */
+
+  /**
+   * Finds the employer's own name and location in a posting.
+   *
+   * Neither can ever be something a CV is "missing" — nobody lists the company
+   * they are applying to as a skill — yet both score highly: they are
+   * multi-word (so they collect the phrase bonus) and they sit in the title
+   * line (so they collect the lead-paragraph multiplier). Unfiltered, a gap
+   * list for "Vendor Operations Manager - Acme Supply Co, Bengaluru" opens with
+   * "acme supply co", "manager acme supply" and "supply co bengaluru", and the
+   * three terms that would actually help are pushed below the fold.
+   *
+   * Returns { name: [tokens], places: Set(tokens) }, both normalized+stemmed.
+   */
+  function detectEmployer(jobText) {
+    const text = String(jobText || '');
+    const seq = (str) => tokenize(str).map(stem).filter(Boolean);
+    let name = [];
+    const places = new Set();
+
+    // Strongest signal: the header line, written "Title - Company, Location".
+    const header = text.split(/\r?\n/).find((l) => l.trim().length > 0) || '';
+    const dashSplit = header.split(/\s+[-–—]\s+/);
+    if (dashSplit.length > 1) {
+      const tail = dashSplit[dashSplit.length - 1].split(',');
+      name = seq(tail[0]);
+      // Everything after the company is where the job is, not what it needs.
+      tail.slice(1).forEach((part) => seq(part).forEach((t) => places.add(t)));
+    }
+
+    // Fall back to prose: a legal suffix, or "at X" / "join X" / "X is hiring".
+    if (!name.length) {
+      const suffixed = text.match(new RegExp(
+        String.raw`\b([A-Z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*){0,3}\s+` + COMPANY_SUFFIX.source + String.raw`)\b`, 'i'));
+      const phrased = text.match(/\b(?:at|join|about)\s+([A-Z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*){0,2})/);
+      const hiring = text.match(/\b([A-Z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*){0,2})\s+is\s+(?:hiring|looking|seeking)/);
+      const found = (suffixed && suffixed[1]) || (hiring && hiring[1]) || (phrased && phrased[1]);
+      if (found) name = seq(found);
+    }
+
+    return { name, places };
+  }
+
+  /**
+   * True when a candidate term is really the employer's name or address.
+   *
+   * Two consecutive tokens, not one, because a company name routinely borrows
+   * an industry word — "Acme Supply Co" must not cost the posting its genuine
+   * "supply chain" requirement. A place name is dropped outright: a city is
+   * never a skill, so there is no such collision to protect against.
+   */
+  function isEmployerTerm(keyTokens, employer, requirementTokens) {
+    if (keyTokens.some((t) => employer.places.has(t)) && keyTokens.every((t) => !looksTechnical(t))) return true;
+    const name = employer.name;
+    if (!name.length) return false;
+
+    // A one-word company name cannot be caught by the pair rule, and splitting
+    // the header at its punctuation is what strands it as a bare token. The
+    // discriminator is where else it appears: a real requirement is stated
+    // under the requirements heading, whereas the employer's own name occurs
+    // only in the letterhead. So "Acme" goes and "Supply" — which the posting
+    // also uses in "supply chain" — stays.
+    if (keyTokens.length === 1) {
+      const t = keyTokens[0];
+      return name.includes(t) && !looksTechnical(t) && !requirementTokens.has(t);
+    }
+
+    for (let i = 0; i + 1 < keyTokens.length; i += 1) {
+      for (let j = 0; j + 1 < name.length; j += 1) {
+        if (keyTokens[i] === name[j] && keyTokens[i + 1] === name[j + 1]) return true;
+      }
+    }
+    return false;
+  }
+
   /* --- Keyword extraction ------------------------------------------------ */
 
   /**
@@ -185,16 +305,24 @@ const MatchEngine = (() => {
     const limit = options.limit || MAX_KEYWORDS;
     const { lines, marks } = markRequirementLines(jobText);
     const leadCutoff = Math.max(1, Math.floor(lines.length * 0.15));
+    const employer = detectEmployer(jobText);
+    // Tokens stated under a requirements heading — the evidence that a word is
+    // a real requirement and not just part of the employer's letterhead.
+    const requirementTokens = new Set();
+    lines.forEach((line, i) => {
+      if (marks[i]) tokenize(line).map(stem).forEach((t) => requirementTokens.add(t));
+    });
 
     const scores = new Map();   // stemmed key -> { term, weight, hard, phrase }
 
     lines.forEach((line, lineIndex) => {
-      const tokens = tokenize(line);
-      if (!tokens.length) return;
-
       let positional = 1;
       if (marks[lineIndex]) positional *= WEIGHT.requirementSection;
       if (lineIndex < leadCutoff) positional *= WEIGHT.leadParagraph;
+
+      clauses(line).forEach((clause) => {
+      const tokens = tokenize(clause);
+      if (!tokens.length) return;
 
       // Unigrams, bigrams, trigrams. Phrases are scored as one term so
       // "project management" is not double-counted as two unigrams.
@@ -210,8 +338,20 @@ const MatchEngine = (() => {
           if (parts.some(isNoiseToken)) continue;
           if (parts.some((p) => p.length < 2)) continue;
 
+          // Drop the verb and keep the requirement. The shorter window without
+          // it is generated by this same loop, and containment dedup keeps the
+          // longest survivor — so skipping here is what lets "contract
+          // compliance" through in place of "drive contract compliance".
+          //
+          // Applied at every length, not just phrases: once the phrases are
+          // skipped the bare verbs are what rank, and "add 'drive' to your CV"
+          // is not advice.
+          if (RESPONSIBILITY_VERBS.has(stem(parts[0]))) continue;
+
           const term = parts.join(' ');
-          const key = parts.map(stem).join(' ');
+          const canon = expandAcronyms(parts);
+          const key = canon.map(stem).join(' ');
+          if (isEmployerTerm(key.split(' '), employer, requirementTokens)) continue;
           const hard = parts.some(looksTechnical);
 
           let weight = positional;
@@ -226,10 +366,11 @@ const MatchEngine = (() => {
             existing.weight += weight / (1 + Math.log(1 + existing.hits));
             existing.hits += 1;
           } else {
-            scores.set(key, { key, term, weight, hits: 1, hard, phrase: n > 1 });
+            scores.set(key, { key, term, weight, hits: 1, hard, phrase: canon.length > 1 });
           }
         }
       }
+      });
     });
 
     const ranked = Array.from(scores.values()).sort((a, b) => b.weight - a.weight);
@@ -270,10 +411,74 @@ const MatchEngine = (() => {
 
   /* --- Scoring ----------------------------------------------------------- */
 
+  /**
+   * Business shorthand and its long form, in both directions.
+   *
+   * A CV that says "ran QBRs with strategic suppliers" scores zero against a
+   * posting that asks for "quarterly business reviews", and the term lands in
+   * the gap list telling the candidate to add something they already have.
+   * That is worse than a missed match: it is wrong advice. CVs compress to the
+   * acronym and postings spell it out, so the mismatch is the common case, not
+   * the edge one.
+   */
+  const ACRONYMS = new Map([
+    ['qbr', 'quarterly business review'],
+    ['sla', 'service level agreement'],
+    ['kpi', 'key performance indicator'],
+    ['okr', 'objective and key result'],
+    ['rfp', 'request for proposal'],
+    ['rfi', 'request for information'],
+    ['sow', 'statement of work'],
+    ['msa', 'master service agreement'],
+    ['nda', 'non disclosure agreement'],
+    ['po', 'purchase order'],
+    ['erp', 'enterprise resource planning'],
+    ['crm', 'customer relationship management'],
+    ['ats', 'applicant tracking system'],
+    ['sop', 'standard operating procedure'],
+    ['bi', 'business intelligence'],
+    ['etl', 'extract transform load'],
+    ['uat', 'user acceptance testing'],
+    ['qa', 'quality assurance'],
+    ['ap', 'accounts payable'],
+    ['ar', 'accounts receivable'],
+    ['ma', 'mergers and acquisitions'],
+    ['kyc', 'know your customer'],
+    ['aml', 'anti money laundering'],
+    ['ld', 'learning and development'],
+    ['capex', 'capital expenditure'],
+    ['opex', 'operating expenditure'],
+    ['cicd', 'continuous integration and continuous delivery'],
+    ['seo', 'search engine optimisation'],
+    ['tat', 'turnaround time'],
+  ]);
+
+  /**
+   * Rewrites acronyms to their long form, on whichever side used the shorthand.
+   *
+   * Canonicalising BOTH sides is what makes this work. The first attempt bolted
+   * the expansion onto the end of the CV's token run instead, which fixed the
+   * unigram case and quietly broke the phrase case: "SLA framework" in the CV
+   * stopped being a contiguous run once "service level agreement" was spliced
+   * between the two words, so an exact match decayed to partial credit. Same
+   * rule applied symmetrically to both texts, and they agree by construction —
+   * the same reason stem() is applied to both sides rather than one.
+   */
+  function expandAcronyms(tokens) {
+    const out = [];
+    tokens.forEach((token) => {
+      // CVs write them plural — "ran QBRs", "owns the SLAs".
+      const base = ACRONYMS.has(token) ? token
+        : (token.endsWith('s') && ACRONYMS.has(token.slice(0, -1)) ? token.slice(0, -1) : null);
+      if (base) out.push(...tokenize(ACRONYMS.get(base)));
+      else out.push(token);
+    });
+    return out;
+  }
+
   function buildHaystack(text) {
-    const tokens = tokenize(text).map(stem);
-    const set = new Set(tokens);
-    return { set, joined: ` ${tokens.join(' ')} ` };
+    const tokens = expandAcronyms(tokenize(text)).map(stem);
+    return { set: new Set(tokens), joined: ` ${tokens.join(' ')} ` };
   }
 
   const PARTIAL_CREDIT = 0.5;
@@ -378,12 +583,29 @@ const MatchEngine = (() => {
    * Approximate on purpose — it is used to flag a large gap against the
    * posting's stated requirement, not to state a fact about the candidate.
    */
+  // "2017 - present", "2017 to date", "2017 -" — an open-ended range means the
+  // role is still running, so the span reaches today.
+  const OPEN_ENDED = /\b(19[89]\d|20[0-4]\d)\s*(?:-|–|—|to|until|till)\s*(?:present|current|currently|now|date|today|ongoing|continuing)\b/i;
+
   function estimateYearsExperience(resumeText) {
-    const years = (String(resumeText || '').match(/\b(19[89]\d|20[0-4]\d)\b/g) || [])
+    const text = String(resumeText || '');
+    const thisYear = new Date().getFullYear();
+    const years = (text.match(/\b(19[89]\d|20[0-4]\d)\b/g) || [])
       .map(Number)
-      .filter((y) => y >= 1980 && y <= new Date().getFullYear() + 1);
-    if (years.length < 2) return null;
-    const span = Math.max(...years) - Math.min(...years);
+      .filter((y) => y >= 1980 && y <= thisYear + 1);
+    if (!years.length) return null;
+
+    // The current role is almost always written "2017 - present", and "present"
+    // is not a four-digit year — so measuring max-minus-min silently stopped the
+    // clock at whatever year was last TYPED. A 2014-to-present career came back
+    // as 3 years, and that number is printed next to the score as a judgement on
+    // the candidate. It under-counts every currently-employed applicant, which
+    // is nearly all of them, and worst for whoever has held one role longest.
+    const stillThere = OPEN_ENDED.test(text) || /\b(present|current|currently|to date|till date|ongoing)\b/i.test(text);
+    const latest = stillThere ? thisYear : Math.max(...years);
+
+    if (years.length < 2 && !stillThere) return null;
+    const span = latest - Math.min(...years);
     return span > 0 && span <= 50 ? span : null;
   }
 

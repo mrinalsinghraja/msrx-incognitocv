@@ -301,6 +301,126 @@ test('does not mutate its inputs', () => {
   assert.equal(cv, WEAK_CV);
 });
 
+/* --- Noise in the gap list ----------------------------------------------- */
+
+/*
+ * Every case below was observed on the live site against a candidate who is a
+ * genuine fit. They are grouped because they share one failure mode: the gap
+ * list is advice, and advice that names something unactionable ("add 'acme
+ * supply co' to your CV") or something the candidate already has is worse than
+ * no advice at all.
+ */
+
+const HEADED_JOB = `Vendor Operations Manager — Acme Supply Co, Bengaluru
+
+We are hiring a Vendor Operations Manager to own supplier onboarding, contract
+compliance and cost recovery across a growing vendor base.
+
+Responsibilities
+- Own end-to-end supplier onboarding and vendor lifecycle management
+- Drive contract compliance and manage renewals and SLAs
+- Build dashboards and reporting in Power BI and SQL
+- Run quarterly business reviews with strategic suppliers
+
+Requirements
+- 6+ years in vendor operations, procurement or supply chain
+- Advanced Excel; SQL and Power BI preferred
+- Experience with ERP systems such as SAP Ariba or Coupa`;
+
+const terms = (job) => Match.extractKeywords(job).map((k) => k.term);
+
+test('the hiring company is never a requirement', () => {
+  const found = terms(HEADED_JOB);
+  ['acme', 'acme supply co', 'manager acme supply', 'supply co bengaluru']
+    .forEach((junk) => assert.ok(!found.includes(junk), `"${junk}" should not be a requirement`));
+});
+
+test('the posting location is never a requirement', () => {
+  assert.ok(!terms(HEADED_JOB).includes('bengaluru'));
+});
+
+test('an industry word inside the company name survives', () => {
+  // "Acme Supply Co" must not cost the posting its real "supply chain" line.
+  assert.ok(terms(HEADED_JOB).includes('supply chain'));
+});
+
+test('a company legal suffix is not a term on its own', () => {
+  assert.ok(!terms(HEADED_JOB).includes('co'));
+});
+
+test('a responsibility verb is dropped and its requirement kept', () => {
+  const found = terms(HEADED_JOB);
+  assert.ok(!found.includes('drive contract compliance'), 'verb phrase should go');
+  assert.ok(!found.includes('drive'), 'bare verb should go');
+  assert.ok(!found.includes('build dashboards'));
+  assert.ok(found.includes('contract compliance'), 'the requirement itself should stay');
+});
+
+test('phrases do not cross a clause boundary', () => {
+  const found = terms(HEADED_JOB);
+  // "supplier onboarding, contract compliance" is two requirements, not one
+  // phrase; no CV will ever contain the run that spans the comma.
+  ['supplier onboarding contract', 'onboarding contract compliance']
+    .forEach((junk) => assert.ok(!found.includes(junk), `"${junk}" spans a comma`));
+});
+
+test('node.js and ci/cd survive clause splitting', () => {
+  const found = terms('Requirements\n- Strong node.js and ci/cd experience');
+  assert.ok(found.includes('node.js'), 'a dotted token must not be split');
+  assert.ok(found.includes('ci/cd'), 'a slashed token must not be split');
+});
+
+/* --- Acronyms ------------------------------------------------------------ */
+
+test('an acronym in the CV matches its long form in the posting', () => {
+  const job = 'Requirements\n- Run quarterly business reviews with suppliers';
+  const cv = 'Owned supplier scorecards and QBRs every quarter.';
+  const gaps = Match.scoreResume(cv, Match.extractKeywords(job)).missing.map((m) => m.term);
+  assert.ok(!gaps.includes('quarterly business reviews'), 'QBRs is the same thing');
+});
+
+test('the long form in the CV matches an acronym in the posting', () => {
+  const job = 'Requirements\n- Own the SLA framework';
+  const cv = 'Owned the service level agreement framework end to end.';
+  assert.equal(Match.scoreResume(cv, Match.extractKeywords(job)).missing.length, 0);
+});
+
+test('an unrelated acronym is still reported missing', () => {
+  const job = 'Requirements\n- Own the SLA framework';
+  const cv = 'Ran quarterly business reviews.';
+  assert.ok(Match.scoreResume(cv, Match.extractKeywords(job)).missing.length > 0);
+});
+
+/* --- Years of experience ------------------------------------------------- */
+
+const thisYear = new Date().getFullYear();
+
+test('an open-ended current role counts to today', () => {
+  // The bug: max-minus-min over four-digit years stopped at the last year
+  // TYPED, so a career running to "present" was truncated. It under-counted
+  // every currently-employed candidate, and the number is shown as a verdict.
+  const years = Match.estimateYearsExperience('Analyst 2014-2017\nManager 2017-present');
+  assert.equal(years, thisYear - 2014);
+});
+
+test('"current" and "to date" read the same as "present"', () => {
+  assert.equal(Match.estimateYearsExperience('Joined 2015 — current'), thisYear - 2015);
+  assert.equal(Match.estimateYearsExperience('Manager, 2015 to date'), thisYear - 2015);
+});
+
+test('a closed date range is still measured end to end', () => {
+  assert.equal(Match.estimateYearsExperience('Analyst 2010-2014\nManager 2014-2018'), 8);
+});
+
+test('a single year with no end date yields nothing', () => {
+  assert.equal(Match.estimateYearsExperience('Graduated 2016'), null);
+});
+
+test('a currently-employed CV is not reported as under-experienced', () => {
+  const level = Match.compareLevel('Manager, Northwind, 2014-present', 'Requirements\n- 6+ years required');
+  assert.equal(level.yearsShortfall, 0);
+});
+
 /* --- Report -------------------------------------------------------------- */
 
 if (failures.length) {
