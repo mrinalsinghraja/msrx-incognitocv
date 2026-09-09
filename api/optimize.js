@@ -48,11 +48,16 @@ Rules you must follow exactly:
 
 const PROMPTS = { resume: RESUME_PROMPT, cover: COVER_PROMPT };
 
-const ALLOWED_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+// Groq retired BOTH `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` on
+// 2026-08-16, which took the fallback down with the preferred model — every
+// attempt 404'd, so the resilience below could not save anything. These are the
+// vendor's named replacements. Check `GET /openai/v1/models` for what is really
+// being served; the deprecation page lags behind it.
+const ALLOWED_MODELS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
 // If the preferred model is rate-limited or erroring, finishing on the smaller
 // model beats handing the user a failure. Quality drop is real but recoverable;
 // a dead button at the end of a ten-second wait is not.
-const FALLBACK_MODEL = 'llama-3.1-8b-instant';
+const FALLBACK_MODEL = 'openai/gpt-oss-20b';
 
 const MAX_INPUT_LENGTH = 20000;
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -100,6 +105,10 @@ async function callGroq({ model, system, user, stream, signal }) {
       model,
       stream: Boolean(stream),
       temperature: 0.15,
+      // gpt-oss models reason before answering and spend those tokens out of
+      // this same budget, which llama never did. A resume rewrite is long-form
+      // but not hard, so keep the thinking short and leave 4096 for the text.
+      reasoning_effort: 'low',
       max_tokens: 4096,
       messages: [
         { role: 'system', content: system },
@@ -301,3 +310,6 @@ module.exports = async function handler(req, res) {
     res.status(504).json({ error: 'The rewriting engine took too long. Try again, or switch to the faster model.' });
   }
 };
+
+module.exports.ALLOWED_MODELS = ALLOWED_MODELS;
+module.exports.FALLBACK_MODEL = FALLBACK_MODEL;

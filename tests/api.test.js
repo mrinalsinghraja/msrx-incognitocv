@@ -11,6 +11,9 @@ const assert = require('node:assert/strict');
 
 process.env.GROQ_API_KEY = 'test-key-not-real';
 const handler = require('../api/optimize.js');
+// Assert against the handler's own constants: a vendor model string copied into
+// an assertion keeps the test green long after the model is decommissioned.
+const { ALLOWED_MODELS, FALLBACK_MODEL } = handler;
 
 let passed = 0;
 const failures = [];
@@ -146,13 +149,13 @@ test('ignores an unknown model rather than forwarding it upstream', async () => 
   const res = makeRes();
   await handler(makeReq({ ...GOOD, model: '../../etc/passwd' }), res);
   assert.equal(res.statusCode, 200);
-  assert.equal(calls[0].body.model, 'llama-3.3-70b-versatile');
+  assert.equal(calls[0].body.model, ALLOWED_MODELS[0]);
 });
 
 test('honours an allowed model', async () => {
   stubFetch([jsonResponse(200, { choices: [{ message: { content: '# Ok' } }] })]);
-  await handler(makeReq({ ...GOOD, model: 'llama-3.1-8b-instant' }), makeRes());
-  assert.equal(calls[0].body.model, 'llama-3.1-8b-instant');
+  await handler(makeReq({ ...GOOD, model: ALLOWED_MODELS[1] }), makeRes());
+  assert.equal(calls[0].body.model, ALLOWED_MODELS[1]);
 });
 
 test('an unknown mode falls back to the resume prompt', async () => {
@@ -190,7 +193,7 @@ test('falls back to the smaller model on the last attempt', async () => {
   const res = makeRes();
   await handler(makeReq(GOOD), res);
   assert.equal(calls.length, 3, 'should have used all attempts');
-  assert.equal(calls[calls.length - 1].body.model, 'llama-3.1-8b-instant',
+  assert.equal(calls[calls.length - 1].body.model, FALLBACK_MODEL,
     'the final attempt must drop to the fallback model');
   assert.equal(res.statusCode, 502);
 });
@@ -252,9 +255,9 @@ test('streams deltas as its own protocol and terminates with [DONE]', async () =
 test('the first stream frame announces which model actually ran', async () => {
   stubFetch([sseResponse(['x'])]);
   const res = makeRes();
-  await handler(makeReq({ ...GOOD, stream: true, model: 'llama-3.1-8b-instant' }), res);
+  await handler(makeReq({ ...GOOD, stream: true, model: ALLOWED_MODELS[1] }), res);
   const first = JSON.parse(dataFrames(res)[0].slice(5).trim());
-  assert.equal(first.meta.model, 'llama-3.1-8b-instant');
+  assert.equal(first.meta.model, ALLOWED_MODELS[1]);
   assert.equal(first.meta.mode, 'resume');
 });
 
