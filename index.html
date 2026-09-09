@@ -372,6 +372,16 @@
           </div>
 
           <div class="report-cols">
+            <!-- Covered first, deliberately. The engine has always computed
+                 what the CV already answers and the panel never showed it, so a
+                 strong candidate read a wall of failures and no credit. A gap
+                 list alone is a scolding; a gap list next to what you already
+                 cover is a balance sheet, and it tells you how much of the
+                 posting is actually in reach. -->
+            <div class="report-col" id="coveredCol" hidden>
+              <div class="t-label">Already covered <span class="report-count" id="coveredCount"></span></div>
+              <ul class="chips chips-good" id="coveredList"></ul>
+            </div>
             <div class="report-col">
               <div class="t-label">Still missing <span class="report-count" id="gapCount"></span></div>
               <ul class="chips" id="gapList"></ul>
@@ -403,7 +413,12 @@
              then look at the result. Putting the controls under a 780px-tall
              sheet meant nobody scrolled far enough to discover them. -->
         <div class="t-label strip-label">Choose your style</div>
-        <p class="strip-note">Same rewritten content, ten looks. Pick one to see it full size below, then take it as Word or PDF — or hover any card to grab that style directly.</p>
+        <!-- Two notes, swapped by the has-output body class. "Same rewritten
+             content, ten looks" is only true once a rewrite exists; before
+             that the cards show a sample, and saying so is the difference
+             between a specimen and a claim about the user's own document. -->
+        <p class="strip-note strip-note-a">Ten looks, shown here on a sample. Your rewrite is typeset in whichever you pick — hover any card to take that style straight to Word or PDF.</p>
+        <p class="strip-note strip-note-b">Same rewritten content, ten looks. Pick one to see it full size below, then take it as Word or PDF — or hover any card to grab that style directly.</p>
         <div class="strip" id="styleStrip" role="radiogroup" aria-label="Resume style">
           <div class="preview-card" data-theme-id="clean">
             <div class="preview-thumb-wrap" role="radio" aria-checked="true" tabindex="0" aria-label="Clean style">

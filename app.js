@@ -347,8 +347,11 @@
 
   function scoreCaption(score, hasAfter) {
     if (score >= 80) return hasAfter ? 'Strong match. Worth applying as-is.' : 'Already a strong match.';
-    if (score >= 60) return 'Solid. Closing the gaps on the right would push it higher.';
-    if (score >= 40) return 'Partial match — the terms on the right are what a screen looks for.';
+    // No directions in the copy. The columns sit side by side on a desk and
+    // stack on a phone, so "on the right" is wrong half the time — and it was
+    // already pointing at whichever column happened to be last.
+    if (score >= 60) return 'Solid. Closing the remaining gaps would push it higher.';
+    if (score >= 40) return 'Partial match — the missing terms are what a screen looks for.';
     return 'Low overlap. Either the CV is missing the posting\'s language, or this is not the right role.';
   }
 
@@ -379,6 +382,14 @@
 
     document.getElementById('reportSub').textContent =
       verdictLine(report) || `${report.keywords.length} terms read out of the posting`;
+
+    // What the CV already answers, ranked by how much the posting weights it.
+    const covered = (report.after || report.before).matched;
+    const coveredCol = document.getElementById('coveredCol');
+    coveredCol.hidden = covered.length === 0;
+    document.getElementById('coveredCount').textContent =
+      covered.length ? `(${covered.length} of ${report.keywords.length})` : '';
+    document.getElementById('coveredList').replaceChildren(...covered.slice(0, 14).map(chip));
 
     const gaps = report.topGaps;
     document.getElementById('gapCount').textContent = gaps.length ? `(${gaps.length})` : '';
@@ -511,6 +522,13 @@
     };
 
     sync();   // cached resume/job are restored before this runs.
+    // Paint the style cards on first load. Nothing called this before, so the
+    // ten cards stayed empty until a rewrite finished — the section that exists
+    // to show what the styles look like was the one part of the page that
+    // showed nothing. Routing through the wrapper keeps state A/B consistent,
+    // and passing any restored output means a cached rewrite still wins over
+    // the specimen.
+    UI.renderThemePreviews(UI.els.output.value || '');
     UI.refreshExportState(Boolean(UI.previewBlocks));
     UI.renderReport();
   });

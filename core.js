@@ -138,6 +138,36 @@ const AppCore = {
     return runs.length ? runs : [{ text, bold: false, italic: false }];
   },
 
+  /**
+   * A short, obviously-generic resume used to draw the style cards before the
+   * user has produced anything of their own.
+   *
+   * Deliberately not a real-looking person: the cards sit inches from the box
+   * where the user pastes their actual CV, and a plausible name there would
+   * read as "this tool has already done something with my document". Shaped
+   * like a resume — name, contact, two sections, a couple of bullets — because
+   * what the ten styles differ in is exactly how they set those parts.
+   */
+  specimenBlocks() {
+    if (!this._specimen) {
+      this._specimen = this.parseMarkdownToBlocks([
+        '# Your Name',
+        'your.name@email.com · +00 00000 00000 · City',
+        '## Summary',
+        'One short paragraph naming what you do and the result you are known for.',
+        '## Experience',
+        '### Job Title, Company',
+        '- A bullet with a number in it, because numbers are what get read.',
+        '- A second bullet, shorter than the first.',
+        '## Skills',
+        'The tools and standards the posting asked for, where they are true of you.',
+      ].join('\n'));
+    }
+    return this._specimen;
+  },
+
+  _specimen: null,
+
   parseMarkdownToBlocks(markdown) {
     const blocks = [];
     for (const raw of markdown.replace(/\r\n/g, '\n').split('\n')) {
@@ -869,12 +899,19 @@ const UI = {
   // clear the gallery back to its empty state (used on failed runs and on wipe).
   renderThemePreviews(markdown) {
     this.previewBlocks = markdown.trim() ? AppCore.parseMarkdownToBlocks(markdown) : null;
+    // Before a rewrite exists, draw the specimen instead of nothing. A style
+    // picker that shows ten blank rectangles until after you have committed to
+    // a rewrite has the choice backwards: the whole reason to look at it is to
+    // see what the styles DO. The specimen is visibly generic so it cannot be
+    // mistaken for the user's own document.
+    const blocks = this.previewBlocks || AppCore.specimenBlocks();
     this.els.previewCards.forEach((card) => {
       const theme = RESUME_THEMES.find((t) => t.id === card.dataset.themeId);
       const thumb = card.querySelector('[data-role="thumb"]');
       if (!theme || !thumb) return;
       thumb.replaceChildren();
-      if (this.previewBlocks) thumb.appendChild(AppCore.renderResumePreview(this.previewBlocks, theme));
+      thumb.appendChild(AppCore.renderResumePreview(blocks, theme));
+      card.classList.toggle('is-specimen', !this.previewBlocks);
     });
   },
 

@@ -566,6 +566,17 @@ body:not(.has-output) .stage-page { display: none; }
 /* Style strip — the selector, not the show. Ten of them, so a horizontal strip
    beats a 5x2 grid: it stays one row of one decision. */
 .strip-label { display: block; margin-bottom: var(--s1); }
+/* Only one of the two notes is ever true. */
+.strip-note-b, body.has-output .strip-note-a { display: none; }
+body.has-output .strip-note-b { display: block; }
+
+/* The specimen reads as a placeholder, not as your document. The style itself
+   still shows at full fidelity — muting it further would defeat the point of
+   drawing it — but it sits back far enough that nobody mistakes it for
+   something the tool has already made from their CV. */
+.preview-card.is-specimen .preview-thumb { opacity: 0.58; }
+.preview-card.is-specimen:hover .preview-thumb,
+.preview-card.is-specimen:focus-within .preview-thumb { opacity: 0.85; }
 .strip-note {
   max-width: 68ch;
   margin-bottom: var(--s3);
